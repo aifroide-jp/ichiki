@@ -42,3 +42,50 @@
 ## 成果物
 - テスト仕様書（Markdown + PDF、1画面1テスト、YES/NO判定）を自動出力する
 - 本番リリース手順書（Markdown、エックスサーバー向け）を自動出力する
+
+## 出力契約（ファイル構成）
+テーマは次の構成で生成する。案件ごとに崩さない。
+- functions.php（テーマ設定・CPT登録・メニュー・acf読込・enqueue・画像sideload）
+- header.php / footer.php（共通領域。common フィールドを配置）
+- front-page.php（トップ）
+- page-<slug>.php（固定ページ）
+- archive-<cpt>.php / single-<cpt>.php（CPTの一覧・詳細）
+- inc/acf-<slug>.php（ACFフィールドグループ登録。acf_add_local_field_group）
+- inc/defaults-<slug>.php（デフォルト値 = mockup値のフォールバック）
+- inc/seed-posts.php（初期投入。必要時のみ）
+- assets/（mockup由来の css / js / images / svg）
+
+## 型マッピング（Phase 1 で適用）
+acf-map.yaml の type（text/textarea/image の3型）を、意味に応じて次に変換する:
+- 見出し（h1〜h3）→ text
+- 短い1〜2文（p）→ textarea
+- リッチな本文（h2配下のまとまった段落・リスト等）→ wysiwyg
+- 単体URL（リンク先・公式サイト等）→ url
+- 画像（img）→ image（return_format は array に統一）
+- ラベルを持つ定型項目（住所・料金・営業時間等）→ text
+- 判断はお手本に倣う
+
+## トップページ
+- index / home / top / front のいずれかの slug を front-page に割り当てる
+- 該当なし・複数 → CLAUDE.md の「## トップページ」で指定。指定なければ止めて確認する（自動推測しない）
+
+## ナビゲーション（リンク解決）
+- nav を register_nav_menus() + wp_nav_menu() で出力する
+- links[].href が mockup内ファイル（about.html 等）なら、生成ページのパーマリンクへ対応付ける
+- 外部URL・アンカー・mailto: はそのまま
+- 重複する nav は1つの共通メニューに名寄せする
+
+## フォーム（CF7置換）
+- forms を Contact Form 7 のショートコードに置換する
+- 送信先は CLAUDE.md の「## フォーム設定」。未指定時は admin_email、自動返信なし
+- 未指定時はリリース手順書に「送信先を設定」と明記する
+
+## 画像（2方式）
+- 差し替え画像（スライド等）→ フォールバック表示。ACF image型、instructions に mockup 画像URLを明記、テンプレで「空欄なら assets/ の mockup 画像を表示」
+- 自動投入（CPTヘッダー等）→ sideload で元サイト画像をメディアに登録
+- ACF image型に文字列デフォルトは設定できないため、デフォルト表示はテンプレ側フォールバックで行う
+
+## 作法
+- フィールドに L1 向けの instructions（記入例・改行ルール等）を付ける
+- 本文エディタが不要なテンプレでは hide_on_screen に the_content を入れ、ACFのみで編集させる
+- ACF PRO 専用機能（Repeater・Flexible Content・オプションページ）に依存しない

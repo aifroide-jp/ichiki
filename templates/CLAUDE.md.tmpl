@@ -17,6 +17,14 @@
 - `acf-map.yaml` の機械命名は意味ベースの名前にリネームし、対応を `field-map.json` に記録する
 - 型・ページ種別・トップ・nav解決・画像方式は固定ルールに従い、判断に迷う境界は止めて確認する
 
+## お手本（ゴールデンサンプル）
+- 参照先: 検証案件 nature-kitakyushu の既存実装
+  - `inc/acf-spot.php`（ACFフィールド定義の構造・粒度・命名・instructions）
+  - `single-nkk_spot.php`（テンプレートの構成・フォールバック・hide_on_screen）
+  - `archive-nkk_spot.php`（CPT一覧テンプレート）
+- この構造・命名・instructions の付け方に倣うこと
+- お手本は無断で変えない。変えたら再現性の基準がずれるため検証し直す
+
 ## ACF化除外
 <!-- 【人手】ここだけ確認・追記する。宣言ゼロでも動作する -->
 - CSSアニメーション用SVG

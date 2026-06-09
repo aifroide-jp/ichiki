@@ -1,0 +1,17 @@
+name: WCAG AA Check
+on: [pull_request]
+jobs:
+  wcag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - run: npm install -g pa11y-ci
+      - run: |
+          # 対象URLは案件ごとに .pa11yci.json で指定する
+          # 雛形のため、ここではコメントのみ
+          echo "pa11y-ci の実行には Local または検証サーバーのURLが必要です"
+          echo ".pa11yci.json をリポジトリルートに配置し、対象URLを指定してください"
+          # pa11y-ci
