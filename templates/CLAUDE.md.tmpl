@@ -1,0 +1,22 @@
+# 案件用 CLAUDE.md — {{PROJECT}}（Ichiki / mockup→WordPress）
+
+<!-- Ichiki Phase 0 (mockup2wp scan) で自動生成 / generated: {{GENERATED}} -->
+<!-- 固定ルールは下の import で読み込む。人手で触るのは「ACF化除外」ブロックだけ -->
+@.claude/ichiki/rules/ichiki.md
+
+## プロジェクト
+- プロジェクト名: {{PROJECT}}
+- フィールド台帳: `acf-map.yaml` を参照（フィールド候補・タブ分類・デフォルト値・nav・form・装飾・meta）
+
+## 対象ページ
+{{PAGES}}
+
+## ビルド
+- `mockup2wp build` を実行し、テーマ一式・ACFフィールド定義・CF7フォームを生成する
+- 入力は `acf-map.yaml`。装飾タブの分類は生成前に目視確認する
+
+## ACF化除外
+<!-- 【人手】ここだけ確認・追記する。宣言ゼロでも動作する -->
+- CSSアニメーション用SVG
+- `<style>` タグ内のインラインSVG
+- （案件固有の除外をここに追記）

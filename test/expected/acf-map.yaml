@@ -1,0 +1,155 @@
+project: demo
+generated_at: '2026-06-09'
+pages:
+  - id: contact
+    title: お問合せ｜アーバンネイチャー北九州
+    file: contact.html
+    sections:
+      - id: contact
+        fields:
+          - element: h1
+            field_name: contact_title
+            tab: section
+            type: text
+            default: お問合せ
+          - element: p
+            field_name: contact_text
+            tab: section
+            type: textarea
+            default: 下記フォームよりお問い合わせください。
+      - id: footer
+        fields:
+          - element: p
+            field_name: footer_text
+            tab: section
+            type: textarea
+            default: © Urban Nature Kitakyushu
+    nav:
+      - selector: nav.global-nav
+        links:
+          - text: トップ
+            href: index.html
+          - text: 活動について
+            href: about.html
+          - text: お問合せ
+            href: contact.html
+    forms:
+      - action: /submit
+        method: post
+        fields:
+          - name: your-name
+            tag: input
+            type: text
+            placeholder: お名前
+          - name: your-email
+            tag: input
+            type: email
+            placeholder: メールアドレス
+          - name: your-message
+            tag: textarea
+            type: textarea
+            placeholder: お問い合わせ内容
+    decoration: []
+    meta:
+      title: お問合せ｜アーバンネイチャー北九州
+      description: お問合せフォーム
+  - id: index
+    title: アーバンネイチャー北九州
+    file: index.html
+    sections:
+      - id: hero
+        fields:
+          - element: h1
+            field_name: hero_title
+            tab: main
+            type: text
+            default: 北九州の自然と暮らす
+          - element: p
+            field_name: hero_text
+            tab: main
+            type: textarea
+            default: ネイチャーポジティブを地域から進めます。
+          - element: img
+            field_name: hero_image
+            tab: main
+            type: image
+            default: /assets/hero.jpg
+      - id: features
+        fields:
+          - element: svg
+            field_name: features_icon_1
+            tab: section
+            type: image
+            default: <inline-svg>
+          - element: h3
+            field_name: features_title_1
+            tab: section
+            type: text
+            default: 活動拠点
+          - element: p
+            field_name: features_text_1
+            tab: section
+            type: textarea
+            default: 市内各地の拠点を紹介します。
+          - element: svg
+            field_name: features_icon_2
+            tab: section
+            type: image
+            default: <inline-svg>
+          - element: h3
+            field_name: features_title_2
+            tab: section
+            type: text
+            default: 地域との繋がり
+          - element: p
+            field_name: features_text_2
+            tab: section
+            type: textarea
+            default: 市民や企業と共に取り組みます。
+          - element: svg
+            field_name: features_icon_3
+            tab: section
+            type: image
+            default: <inline-svg>
+          - element: h3
+            field_name: features_title_3
+            tab: section
+            type: text
+            default: 活動事例
+          - element: p
+            field_name: features_text_3
+            tab: section
+            type: textarea
+            default: これまでの取り組みを掲載します。
+      - id: footer
+        fields:
+          - element: p
+            field_name: footer_text
+            tab: section
+            type: textarea
+            default: © Urban Nature Kitakyushu
+    nav:
+      - selector: nav.global-nav
+        links:
+          - text: トップ
+            href: index.html
+          - text: 活動について
+            href: about.html
+          - text: お問合せ
+            href: contact.html
+    forms: []
+    decoration:
+      - selector: svg.bg-wave
+        reason: class*="bg-wave"
+    meta:
+      title: アーバンネイチャー北九州
+      description: 北九州の自然と暮らすためのネイチャーポジティブ・サイト
+      ogp:
+        og:title: アーバンネイチャー北九州
+        og:image: /assets/ogp.jpg
+coverage:
+  acf_candidates: 16
+  decoration: 1
+  by_tab:
+    main: 3
+    section: 13
