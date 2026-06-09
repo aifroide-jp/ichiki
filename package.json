@@ -1,6 +1,6 @@
 {
   "name": "mockup2wp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Ichiki Phase 0 — scan a mockup into acf-map.yaml and a per-case CLAUDE.md (deterministic, no LLM)",
   "bin": { "mockup2wp": "bin/mockup2wp.js" },
   "main": "src/scan.js",
