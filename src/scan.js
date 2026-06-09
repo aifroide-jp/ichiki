@@ -58,7 +58,7 @@ function sectionFor($, el) {
   const tag = tagOf(chosen);
   const id = $(chosen).attr('id');
   const cls = classList($, chosen);
-  const nameSrc = id || cls.find(c => !DECO_PATTERNS.some(p => c.includes(p))) || tag;
+  const nameSrc = id || cls.find(c => !DECO_PATTERNS.some(p => c.includes(p)) && sanitize(c) !== sanitize(tag)) || tag;
   const isHero = HERO_RE.test(id || '') || cls.some(c => HERO_RE.test(c)) || HERO_RE.test(tag);
   return { name: sanitize(nameSrc), isHero };
 }
@@ -77,8 +77,9 @@ function elementSpec($, el) {
 
 function scanHtml(html, file) {
   const $ = cheerio.load(html);
+  $('section, main, article').each((i, el) => $(el).attr('data-ich-sec', String(i)));
   const page = {
-    id: sanitize(path.basename(file).replace(/\.html?$/i, '')) || 'index',
+    id: sanitize(file.replace(/\.html?$/i, '').replace(/\/index$/i, '')) || 'index',
     file,
     title: $('title').first().text().trim() || $('h1').first().text().trim() || file,
     sections: new Map(),   // name -> { fields: [] }（Mapで挿入順を保持）
@@ -153,24 +154,37 @@ function assignNames(page) {
 }
 
 function buildAcfMap(pages, project) {
-  let candidates = 0, deco = 0;
   const byTab = { main: 0, section: 0 };
   const outPages = pages.map(p => {
-    const sections = [...p.sections].map(([name, sec]) => {
-      sec.fields.forEach(f => { candidates++; byTab[f.tab] = (byTab[f.tab] || 0) + 1; });
-      return {
-        id: name,
-        fields: sec.fields.map(f => ({
-          element: f.element, field_name: f.field_name, tab: f.tab, type: f.type, default: f.value,
-        })),
-      };
-    });
-    deco += p.decoration.length;
+    const sections = [...p.sections].map(([name, sec]) => ({
+      id: name,
+      fields: sec.fields.map(f => ({
+        element: f.element, field_name: f.field_name, tab: f.tab, type: f.type, default: f.value,
+      })),
+    }));
     return { id: p.id, title: p.title, file: p.file, sections, nav: p.nav, forms: p.forms, decoration: p.decoration, meta: p.meta };
   });
+
+  // セクションの内容シグネチャ（id + 各フィールドの要素・名前・既定値）で完全一致を判定する
+  const sig = sec => sec.id + '#' + sec.fields.map(f => `${f.element}:${f.field_name}=${f.default}`).join('|');
+  const count = {}, sample = {};
+  for (const p of outPages) for (const sec of p.sections) { const s = sig(sec); count[s] = (count[s] || 0) + 1; sample[s] = sec; }
+  const threshold = Math.max(2, Math.ceil(outPages.length * 0.5));
+  const commonSigs = new Set(Object.keys(count).filter(s => count[s] >= threshold));
+  const common = [...commonSigs].map(s => sample[s]);
+  for (const p of outPages) p.sections = p.sections.filter(sec => !commonSigs.has(sig(sec)));
+
+  let candidates = 0, deco = 0;
+  for (const sec of common) for (const f of sec.fields) { candidates++; byTab[f.tab] = (byTab[f.tab] || 0) + 1; }
+  for (const p of outPages) {
+    deco += p.decoration.length;
+    for (const sec of p.sections) for (const f of sec.fields) { candidates++; byTab[f.tab] = (byTab[f.tab] || 0) + 1; }
+  }
+
   return {
     project,
     generated_at: new Date().toISOString().slice(0, 10),
+    common,
     pages: outPages,
     coverage: { acf_candidates: candidates, decoration: deco, by_tab: byTab },
   };
