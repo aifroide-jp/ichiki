@@ -10,11 +10,12 @@
 ## ACF生成ルール
 - 全編集対象要素をACFフィールド化する
 - 命名規則: `{セクション名}_{要素種別}_{連番}`（連番は同種が複数あるときだけ付与。例: hero_title, features_icon_1）
+- 数字始まりのセクション名は `sec_` を前置する（例: id="2024" → sec_2024_title）。ACF/PHPのキー・JS変数として使えるようにするため
 - ページIDは mockup フォルダからの相対パスで生成する。index.html はディレクトリ名に畳む（例: about/index.html → about、center/biotope.html → center_biotope）。ルート直下の index.html は index
 - タブ分類:
   - ①メインコンテンツ: h1〜h3・p・メイン領域のimg（初期展開）
   - ②セクション別: セクション内の繰り返し要素・サブ画像・機能アイコンSVG（初期展開）
-  - ③装飾要素: `class*="bg-/pattern-/deco-"`・`aria-hidden="true"` のSVG/画像（折りたたみ）
+  - ③装飾要素: 要素または祖先が `aria-hidden="true"`、またはclassに `bg-/pattern-/deco-` を含む h1〜h6/p/img/svg（折りたたみ）
 - デフォルト値: mockup内の値をACFデフォルト値として登録する
 - 繰り返し要素は固定数前提。連番フィールドで表現する（可変数のセクションは対象外、または案件CLAUDE.mdの除外で手動指定）
 
