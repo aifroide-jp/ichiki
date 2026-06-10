@@ -1,5 +1,5 @@
 project: demo
-generated_at: '2026-06-09'
+generated_at: '2026-06-10'
 common:
   - id: footer
     fields:
@@ -13,6 +13,25 @@ pages:
     title: お問合せ｜アーバンネイチャー北九州
     file: contact.html
     sections:
+      - id: page_header
+        fields:
+          - element: h1
+            field_name: page_header_title
+            tab: section
+            type: text
+            default: お問合せページ
+          - element: p
+            field_name: page_header_text
+            tab: section
+            type: textarea
+            default: お気軽にご連絡ください。
+      - id: section_0
+        fields:
+          - element: h2
+            field_name: section_0_title
+            tab: section
+            type: text
+            default: よくあるご質問
       - id: contact
         fields:
           - element: h1
@@ -122,6 +141,30 @@ pages:
             tab: section
             type: textarea
             default: これまでの取り組みを掲載します。
+      - id: section_2
+        fields:
+          - element: h2
+            field_name: section_2_title
+            tab: section
+            type: text
+            default: お知らせ
+          - element: p
+            field_name: section_2_text
+            tab: section
+            type: textarea
+            default: 最新のお知らせです。
+      - id: section_3
+        fields:
+          - element: h2
+            field_name: section_3_title
+            tab: section
+            type: text
+            default: 動画一覧
+          - element: p
+            field_name: section_3_text
+            tab: section
+            type: textarea
+            default: 動画の説明です。
     nav:
       - selector: nav.global-nav
         links:
@@ -142,8 +185,8 @@ pages:
         og:title: アーバンネイチャー北九州
         og:image: /assets/ogp.jpg
 coverage:
-  acf_candidates: 15
+  acf_candidates: 22
   decoration: 1
   by_tab:
     main: 3
-    section: 12
+    section: 19

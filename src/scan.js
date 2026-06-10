@@ -54,11 +54,23 @@ function sectionFor($, el) {
       }
     }
   }
+  // パス3: それでもなければ、任意のクラスを持つ最も近い祖先（body/html は除く）
+  // div.page-header 等、セクションタグではないが意味のあるラッパーを拾う
+  if (!chosen) {
+    for (const a of ancestors) {
+      if (!['body', 'html'].includes(tagOf(a)) && classList($, a).length) { chosen = a; break; }
+    }
+  }
   if (!chosen) return { name: 'page', isHero: false };
   const tag = tagOf(chosen);
   const id = $(chosen).attr('id');
   const cls = classList($, chosen);
-  const nameSrc = id || cls.find(c => !DECO_PATTERNS.some(p => c.includes(p)) && sanitize(c) !== sanitize(tag)) || tag;
+  // id/class が英数字を含まない（特殊文字のみ）場合は使わず番号フォールバックへ
+  const safeId = id && /[a-z0-9]/i.test(id) ? id : null;
+  const safeCls = cls.find(c => !DECO_PATTERNS.some(p => c.includes(p)) && sanitize(c) !== sanitize(tag) && /[a-z0-9]/i.test(c));
+  // id/class が無い匿名セクションタグ（section/main/article）は data-ich-sec の番号で区別する
+  const secIdx = $(chosen).attr('data-ich-sec');
+  const nameSrc = safeId || safeCls || (secIdx !== undefined ? `${tag}_${secIdx}` : tag);
   const isHero = HERO_RE.test(id || '') || cls.some(c => HERO_RE.test(c)) || HERO_RE.test(tag);
   return { name: sanitize(nameSrc), isHero };
 }
