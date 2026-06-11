@@ -1,5 +1,5 @@
 project: demo
-generated_at: '2026-06-10'
+generated_at: '2026-06-11'
 common:
   - id: footer
     fields:
@@ -94,6 +94,7 @@ pages:
             tab: main
             type: image
             default: /assets/hero.jpg
+            alt: 北九州の自然
       - id: features
         fields:
           - element: svg
@@ -153,6 +154,12 @@ pages:
             tab: section
             type: textarea
             default: 最新のお知らせです。
+          - element: img
+            field_name: section_2_image
+            tab: section
+            type: image
+            default: /assets/news.jpg
+            alt_missing: true
       - id: section_3
         fields:
           - element: h2
@@ -185,8 +192,8 @@ pages:
         og:title: アーバンネイチャー北九州
         og:image: /assets/ogp.jpg
 coverage:
-  acf_candidates: 22
+  acf_candidates: 23
   decoration: 1
   by_tab:
     main: 3
-    section: 19
+    section: 20
