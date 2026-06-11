@@ -32,6 +32,30 @@ pages:
             tab: section
             type: text
             default: よくあるご質問
+      - id: white
+        fields:
+          - element: h2
+            field_name: white_title
+            tab: section
+            type: text
+            default: ご利用案内
+          - element: p
+            field_name: white_text
+            tab: section
+            type: textarea
+            default: サービスのご案内です。
+      - id: sec_2024
+        fields:
+          - element: h2
+            field_name: sec_2024_title
+            tab: section
+            type: text
+            default: 2024年の活動
+          - element: p
+            field_name: sec_2024_text
+            tab: section
+            type: textarea
+            default: 昨年の活動実績です。
       - id: contact
         fields:
           - element: h1
@@ -172,6 +196,12 @@ pages:
             tab: section
             type: textarea
             default: 動画の説明です。
+          - element: img
+            field_name: section_3_image
+            tab: section
+            type: image
+            default: /assets/video-thumb.jpg
+            alt_missing: true
     nav:
       - selector: nav.global-nav
         links:
@@ -192,8 +222,8 @@ pages:
         og:title: アーバンネイチャー北九州
         og:image: /assets/ogp.jpg
 coverage:
-  acf_candidates: 23
+  acf_candidates: 28
   decoration: 1
   by_tab:
     main: 3
-    section: 20
+    section: 25
