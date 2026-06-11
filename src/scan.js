@@ -54,11 +54,23 @@ function sectionFor($, el) {
       }
     }
   }
+  // パス3: それでもなければ、任意のクラスを持つ最も近い祖先（body/html は除く）
+  // div.page-header 等、セクションタグではないが意味のあるラッパーを拾う
+  if (!chosen) {
+    for (const a of ancestors) {
+      if (!['body', 'html'].includes(tagOf(a)) && classList($, a).length) { chosen = a; break; }
+    }
+  }
   if (!chosen) return { name: 'page', isHero: false };
   const tag = tagOf(chosen);
   const id = $(chosen).attr('id');
   const cls = classList($, chosen);
-  const nameSrc = id || cls.find(c => !DECO_PATTERNS.some(p => c.includes(p)) && sanitize(c) !== sanitize(tag)) || tag;
+  // id/class が英数字を含まない（特殊文字のみ）場合は使わず番号フォールバックへ
+  const safeId = id && /[a-z0-9]/i.test(id) ? id : null;
+  const safeCls = cls.find(c => !DECO_PATTERNS.some(p => c.includes(p)) && sanitize(c) !== sanitize(tag) && /[a-z0-9]/i.test(c));
+  // id/class が無い匿名セクションタグ（section/main/article）は data-ich-sec の番号で区別する
+  const secIdx = $(chosen).attr('data-ich-sec');
+  const nameSrc = safeId || safeCls || (secIdx !== undefined ? `${tag}_${secIdx}` : tag);
   const isHero = HERO_RE.test(id || '') || cls.some(c => HERO_RE.test(c)) || HERO_RE.test(tag);
   return { name: sanitize(nameSrc), isHero };
 }
@@ -70,7 +82,12 @@ function elementSpec($, el) {
   if (/^h[1-3]$/.test(tag)) return { token: 'title', type: 'text', value: text };
   if (/^h[4-6]$/.test(tag)) return { token: 'heading', type: 'text', value: text };
   if (tag === 'p') return { token: 'text', type: 'textarea', value: text };
-  if (tag === 'img') return { token: 'image', type: 'image', value: $(el).attr('src') || $(el).attr('data-src') || '' };
+  if (tag === 'img') {
+    const alt = $(el).attr('alt');
+    const spec = { token: 'image', type: 'image', value: $(el).attr('src') || $(el).attr('data-src') || '' };
+    if (alt !== undefined && alt !== '') { spec.alt = alt; } else { spec.alt_missing = true; }
+    return spec;
+  }
   if (tag === 'svg') return { token: 'icon', type: 'image', value: '<inline-svg>' };
   return null;
 }
@@ -133,7 +150,10 @@ function scanHtml(html, file) {
     const sec = sectionFor($, el);
     const tab = (sec.isHero && ['title', 'text', 'image'].includes(spec.token)) ? 'main' : 'section';
     if (!page.sections.has(sec.name)) page.sections.set(sec.name, { fields: [] });
-    page.sections.get(sec.name).fields.push({ element: tagOf(el), token: spec.token, type: spec.type, value: spec.value, tab });
+    const field = { element: tagOf(el), token: spec.token, type: spec.type, value: spec.value, tab };
+    if (spec.alt !== undefined) field.alt = spec.alt;
+    if (spec.alt_missing) field.alt_missing = true;
+    page.sections.get(sec.name).fields.push(field);
   });
 
   return page;
@@ -158,9 +178,12 @@ function buildAcfMap(pages, project) {
   const outPages = pages.map(p => {
     const sections = [...p.sections].map(([name, sec]) => ({
       id: name,
-      fields: sec.fields.map(f => ({
-        element: f.element, field_name: f.field_name, tab: f.tab, type: f.type, default: f.value,
-      })),
+      fields: sec.fields.map(f => {
+        const out = { element: f.element, field_name: f.field_name, tab: f.tab, type: f.type, default: f.value };
+        if (f.alt !== undefined) out.alt = f.alt;
+        if (f.alt_missing) out.alt_missing = true;
+        return out;
+      }),
     }));
     return { id: p.id, title: p.title, file: p.file, sections, nav: p.nav, forms: p.forms, decoration: p.decoration, meta: p.meta };
   });
