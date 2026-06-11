@@ -28,6 +28,22 @@ function isDecoration($, el) {
     ($(a).attr('aria-hidden') === 'true') || hasDecoClass(classList($, a)));
 }
 
+// T5: CSS テキストから background-image プロパティを持つクラス名を収集する（簡易パーサ）
+function extractBgImageClasses(cssText) {
+  const classes = new Set();
+  const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+  let m;
+  while ((m = ruleRe.exec(cssText)) !== null) {
+    if (/background-image\s*:/i.test(m[2])) {
+      m[1].split(',').forEach(sel => {
+        const found = sel.match(/\.([a-zA-Z0-9_-]+)/g);
+        if (found) found.forEach(c => classes.add(c.slice(1)));
+      });
+    }
+  }
+  return classes;
+}
+
 function sanitize(s) {
   const v = (s || '').toString().trim().toLowerCase()
     .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
@@ -92,7 +108,7 @@ function elementSpec($, el) {
   return null;
 }
 
-function scanHtml(html, file) {
+function scanHtml(html, file, dir) {
   const $ = cheerio.load(html);
   $('section, main, article').each((i, el) => $(el).attr('data-ich-sec', String(i)));
   const page = {
@@ -154,6 +170,32 @@ function scanHtml(html, file) {
     if (spec.alt !== undefined) field.alt = spec.alt;
     if (spec.alt_missing) field.alt_missing = true;
     page.sections.get(sec.name).fields.push(field);
+  });
+
+  // T5: background-image を持つ要素を装飾候補として追加スキャン（全タグ対象）
+  const bgCssClasses = new Set();
+  if (dir) {
+    $('link[rel="stylesheet"]').each((i, link) => {
+      const href = $(link).attr('href');
+      if (!href || /^(https?:)?\/\//.test(href)) return;
+      try {
+        const cssPath = path.resolve(dir, path.dirname(file), href);
+        for (const c of extractBgImageClasses(fs.readFileSync(cssPath, 'utf8'))) bgCssClasses.add(c);
+      } catch (_) { /* CSS が見つからない場合はスキップ */ }
+    });
+  }
+  const SKIP_TAGS = new Set(['html', 'head', 'body', 'script', 'style', 'link', 'meta', 'title']);
+  const decoSeen = new Set(page.decoration.map(d => d.selector));
+  $('*').each((i, el) => {
+    if (SKIP_TAGS.has(tagOf(el))) return;
+    const inlineStyle = $(el).attr('style') || '';
+    const cls = classList($, el);
+    const hasBg = /background-image\s*:/i.test(inlineStyle) || cls.some(c => bgCssClasses.has(c));
+    if (!hasBg) return;
+    const selector = tagOf(el) + (cls.length ? '.' + cls[0] : '');
+    if (decoSeen.has(selector)) return;
+    decoSeen.add(selector);
+    page.decoration.push({ selector, reason: 'background-image' });
   });
 
   return page;
@@ -241,7 +283,7 @@ function runScan({ dir, out, project, tmpl }) {
   const files = listHtml(dir).sort();
   if (!files.length) { console.error(`no .html files in ${dir}`); process.exit(1); }
   const pages = files.map(f => {
-    const page = scanHtml(fs.readFileSync(path.join(dir, f), 'utf8'), f);
+    const page = scanHtml(fs.readFileSync(path.join(dir, f), 'utf8'), f, dir);
     assignNames(page);
     return page;
   });
