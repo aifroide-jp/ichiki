@@ -215,6 +215,10 @@ pages:
     decoration:
       - selector: svg.bg-wave
         reason: class*="bg-wave"
+      - selector: div
+        reason: background-image
+      - selector: div.bg-section
+        reason: background-image
     meta:
       title: アーバンネイチャー北九州
       description: 北九州の自然と暮らすためのネイチャーポジティブ・サイト
@@ -223,7 +227,7 @@ pages:
         og:image: /assets/ogp.jpg
 coverage:
   acf_candidates: 28
-  decoration: 1
+  decoration: 3
   by_tab:
     main: 3
     section: 25
