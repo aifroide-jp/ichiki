@@ -14,10 +14,11 @@ acf-map.yaml と固定ルール（@.claude/ichiki/rules/ichiki.md）とお手本
 
 ## 前提確認
 
-1. acf-map.yaml が案件リポ直下にあることを確認する。無ければ /setup を先に実行する。
-2. CLAUDE.md が案件リポ直下にあることを確認する。
-3. お手本（CLAUDE.md の「## お手本」で指定されたファイル群）が参照可能であることを確認する。
-4. Local で WordPress が起動していることを確認する。
+1. `acf-map.yaml` が案件リポ直下にあることを確認する。無ければ `/setup` を先に実行する。
+2. `CLAUDE.md` が案件リポ直下にあることを確認する。
+3. `.ichiki.json` が案件リポ直下にあり、`theme_dir`（絶対パス）と `site_url` が設定済みであることを確認する。未設定なら `/setup` を再実行して生成し、値を埋めてから進む。
+4. Local で WordPress が起動しており、`theme_dir` のパスにテーマディレクトリが存在することを確認する。
+5. ACF・Contact Form 7・Safe SVG プラグインが有効化されていることを確認する。
 
 ## ステップ 1: 全体準備（初回のみ）
 
