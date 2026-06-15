@@ -107,9 +107,12 @@ acf-map.yaml のページごとに種別を判定する。
 - php -l で全 PHP ファイルにエラーが無いか
 - pa11y-ci（WCAG 2.0 AA）で違反が 0 件か
 
-ゲートスクリプトが実装されている場合は実行する:
+ゲートスクリプトを実行する:
 
-    node .claude/ichiki/bin/gate.js check   # 未実装の場合は上の項目を手動確認
+    node .claude/ichiki/bin/gate.js check-all \
+      --acf-map acf-map.yaml \
+      --field-map field-map.json \
+      --theme-dir <theme_dir>
 
 全項目合格なら次のページへ進む。
 
