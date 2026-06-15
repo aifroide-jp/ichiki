@@ -24,7 +24,7 @@ function writeIchikiConfig(opts) {
   const config = {
     project,
     mockup: opts.dir,
-    theme_dir: `$HOME/Local Sites/${project}/app/public/wp-content/themes/${project}`,
+    theme_dir: `$HOME/LocalSites/${project}/app/public/wp-content/themes/${project}`,
     site_url: `http://${project}.local`,
     plugins_required: ['advanced-custom-fields', 'contact-form-7', 'safe-svg'],
   };
