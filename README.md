@@ -86,7 +86,7 @@ node .claude/ichiki/bin/mockup2wp.js scan <mockupディレクトリ> --out . --p
 - Local で WordPress が起動していること
 - `wp-content/themes/<案件名>/` ディレクトリが作成済みであること
 - `.ichiki.json` の `theme_dir` と `site_url` が設定済みであること
-- pa11y-ci がインストール済みであること（`npm install -g pa11y-ci`）
+- pa11y-ci がインストール済みであること（`.claude/ichiki` で `npm install` 済みであれば自動で入る）
 
 > ACF・Contact Form 7・Safe SVG のインストール・有効化は `/run` 完了時に出力される起動コマンド（`wp plugin install ...`）で行う。事前に手動で対応する必要はない。
 
