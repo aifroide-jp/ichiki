@@ -54,14 +54,22 @@ acf-map.yaml のページごとに種別を判定する。
 ## ステップ 3: テンプレートとACF定義の生成（1ページずつ）
 
 `$1` で指定された slug（または全ページを順に）について、次のファイルを生成する。
+ファイル名や集約定義ファイル名には、WordPress標準に適合させるため、アンダースコア（`_`）をハイフン（`-`）に置換した slug（以下、`slug-hyphen`）を使用する。
 
-出力ファイル:
+出力ファイルおよび定義方針:
 
-- index.php（テンプレート階層の最終フォールバック。WordPress 必須）
-- page-<slug>.php（固定ページ）or single-<cpt>.php ＋ archive-<cpt>.php（CPT）
-- inc/acf-<slug>.php（ACFフィールドグループ登録。acf_add_local_field_group）
-- inc/defaults-<slug>.php（デフォルト値 = mockup値のフォールバック）
-- 必要時: inc/seed-posts.php（初期投入）
+- **テンプレートファイル**:
+  - 固定ページ ➡ `page-<slug-hyphen>.php` を生成する。
+  - トップページ ➡ `front-page.php` に割り当てて生成する。
+  - カスタム投稿タイプ（CPT） ➡ 個別のPHPテンプレートは生成せず、共通の `single-<cpt>.php` および `archive-<cpt>.php` に実装を集約し、データベースから動的にデータを読み出す構成にする。
+  - フォールバック ➡ `index.php`（テンプレート階層の最終フォールバック。WordPress必須）
+- **ACF定義ファイル（登録処理）**:
+  - 固定ページ ➡ 1ページ1ファイルに分断させず、すべての固定ページ用の定義を `inc/acf-pages.php` に集約して記述する。
+  - カスタム投稿タイプ ➡ 各カスタム投稿タイプごとに `inc/acf-<cpt>.php`（例: `inc/acf-nkk_center.php`）に集約して記述する。
+- **デフォルト値 / フォールバック処理**:
+  - `inc/defaults-<slug-hyphen>.php`（デフォルト値 = mockup値のフォールバック）を生成する。
+- **初期投稿データ投入**:
+  - 必要時: `inc/seed-posts.php`（初期投入用のwp-cliまたはPHPスクリプト）
 
 型マッピング:
 
@@ -87,7 +95,7 @@ acf-map.yaml のページごとに種別を判定する。
 
 - フィールドに L1 向けの instructions（記入例・改行ルール等）を付ける。
 - 本文エディタが不要なテンプレでは hide_on_screen に the_content を入れ、ACFのみで編集させる。
-- ファイル命名（page-<slug>.php、inc/acf-<slug>.php 等）を案件ごとに崩さない。
+- ファイル命名（page-<slug-hyphen>.php、inc/acf-pages.php 等）を案件ごとに崩さない。
 
 フォーム（forms があるページのみ）:
 
@@ -103,7 +111,7 @@ acf-map.yaml のページごとに種別を判定する。
 以下を確認する。1つでも不合格なら修正して再チェック。
 
 - field-map.json で acf-map.yaml の全フィールド（common 含む）が実装に対応しているか（欠落ゼロ）
-- ファイル構成が契約どおりか（page-<slug>.php・inc/acf-<slug>.php 等が揃っている）
+- ファイル構成が契約どおりか（page-<slug-hyphen>.php、inc/acf-pages.php や統合 ACF 定義ファイル等が揃っている）
 - php -l で全 PHP ファイルにエラーが無いか
 - pa11y-ci（WCAG 2.0 AA）で違反が 0 件か
 
