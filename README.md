@@ -76,9 +76,19 @@ Claude Code 上:
 node .claude/ichiki/bin/mockup2wp.js scan <mockupディレクトリ> --out . --project <案件名>
 ```
 
-→ 案件リポジトリ直下に `acf-map.yaml` と `CLAUDE.md` が生成される。
+→ 案件リポジトリ直下に `acf-map.yaml`・`CLAUDE.md`・`.ichiki.json` が生成される。
+
+`.ichiki.json` に `theme_dir`（WordPress テーマディレクトリの絶対パス）と `site_url` が自動生成される。`theme_dir` の `$HOME` を実際のパスに合わせてから Phase 1 へ進む。`.ichiki.json` は絶対パスを含むため `.gitignore` に追加すること。
 
 ### Phase 1: テーマ構築
+
+前提:
+- Local で WordPress が起動していること
+- `wp-content/themes/<案件名>/` ディレクトリが作成済みであること
+- `.ichiki.json` の `theme_dir` と `site_url` が設定済みであること
+- pa11y-ci がインストール済みであること（`.claude/ichiki` で `npm install` 済みであれば自動で入る）
+
+> ACF・Contact Form 7・Safe SVG のインストール・有効化は `/run` 完了時に出力される起動コマンド（`wp plugin install ...`）で行う。事前に手動で対応する必要はない。
 
 Claude Code 上:
 

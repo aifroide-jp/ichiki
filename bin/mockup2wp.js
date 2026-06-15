@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+const fs = require('fs');
 const path = require('path');
 const { runScan } = require('../src/scan');
 
@@ -16,6 +17,21 @@ function parseScanArgs(args) {
   return opts;
 }
 
+function writeIchikiConfig(opts) {
+  const configPath = path.join(opts.out, '.ichiki.json');
+  if (fs.existsSync(configPath)) return; // 上書きしない（theme_dir等を保護）
+  const project = opts.project;
+  const config = {
+    project,
+    mockup: opts.dir,
+    theme_dir: `$HOME/LocalSites/${project}/app/public/wp-content/themes/${project}`,
+    site_url: `http://${project}.local`,
+    plugins_required: ['advanced-custom-fields', 'contact-form-7', 'safe-svg'],
+  };
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+  console.log(`  -> ${configPath}  ※ theme_dir の $HOME を実際のパスに合わせてください`);
+}
+
 if (cmd === 'scan') {
   const opts = parseScanArgs(args);
   if (!opts.dir) {
@@ -24,6 +40,7 @@ if (cmd === 'scan') {
   }
   opts.tmpl = path.join(__dirname, '..', 'templates', 'CLAUDE.md.tmpl');
   runScan(opts);
+  writeIchikiConfig(opts);
 } else {
   console.error(`unknown command: ${cmd || '(none)'}\ncommands:\n  scan <mockup-dir> [--out DIR] [--project NAME]`);
   process.exit(1);

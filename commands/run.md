@@ -14,10 +14,11 @@ acf-map.yaml と固定ルール（@.claude/ichiki/rules/ichiki.md）とお手本
 
 ## 前提確認
 
-1. acf-map.yaml が案件リポ直下にあることを確認する。無ければ /setup を先に実行する。
-2. CLAUDE.md が案件リポ直下にあることを確認する。
-3. お手本（CLAUDE.md の「## お手本」で指定されたファイル群）が参照可能であることを確認する。
-4. Local で WordPress が起動していることを確認する。
+1. `acf-map.yaml` が案件リポ直下にあることを確認する。無ければ `/setup` を先に実行する。
+2. `CLAUDE.md` が案件リポ直下にあることを確認する。
+3. `.ichiki.json` が案件リポ直下にあり、`theme_dir`（絶対パス）と `site_url` が設定済みであることを確認する。未設定なら `/setup` を再実行して生成し、値を埋めてから進む。
+4. Local で WordPress が起動しており、`theme_dir` のパスにテーマディレクトリが存在することを確認する。
+5. ACF・Contact Form 7・Safe SVG プラグインが有効化されていることを確認する。確認はステップ 5 の起動コマンド出力で担保する（ここでは止めない）。
 
 ## ステップ 1: 全体準備（初回のみ）
 
@@ -26,6 +27,14 @@ acf-map.yaml と固定ルール（@.claude/ichiki/rules/ichiki.md）とお手本
 - common セクションのフィールドを header.php / footer.php に配置する。フッタ等の編集対象は、無料版で成立する方式（専用設定ページ or customizer）で編集可能にする。お手本の方式に倣う。
 - nav を register_nav_menus() ＋ wp_nav_menu() で出力する。重複する nav は1つの共通メニューに名寄せする。
 - mockup の CSS / JS / images / SVG を assets/ に配置し functions.php で enqueue する。
+- 各 mockup HTML の `<style>` ブロックを **ページごとに別ファイル** として抽出し `assets/css/{template-slug}.css` に保存する。
+  - ファイル名はテンプレート名に合わせる（例: `front-page.css`、`page-contact.css`、`single-nkk_spot.css`）。
+  - background-image の相対URLは CSS ファイルからの相対パスに修正する（`url('images/` → `url('../images/`）。
+  - `*, html, body, img, a, ul, .container` 等の共通リセット・ベースは除外し、コンポーネント固有のセレクタのみ書き出す。
+  - `:root { --color-* }` など mockup 固有の CSS 変数も各ページの CSS ファイルに含めてよい（ページ固有 CSS は該当ページにしか読み込まれないので干渉しない）。
+- functions.php で **テンプレートスラッグによる自動 enqueue** を実装する。
+  `template_include` フィルタでスラッグをキャプチャし、`wp_enqueue_scripts`（priority 20）で `assets/css/{slug}.css` が存在すれば条件なしで enqueue する。
+  これにより新しいページの CSS ファイルを追加するだけで自動的に読み込まれる。
 
 ## ステップ 2: ページ種別の判定
 
@@ -45,13 +54,22 @@ acf-map.yaml のページごとに種別を判定する。
 ## ステップ 3: テンプレートとACF定義の生成（1ページずつ）
 
 `$1` で指定された slug（または全ページを順に）について、次のファイルを生成する。
+ファイル名や集約定義ファイル名には、WordPress標準に適合させるため、アンダースコア（`_`）をハイフン（`-`）に置換した slug（以下、`slug-hyphen`）を使用する。
 
-出力ファイル:
+出力ファイルおよび定義方針:
 
-- page-<slug>.php（固定ページ）or single-<cpt>.php ＋ archive-<cpt>.php（CPT）
-- inc/acf-<slug>.php（ACFフィールドグループ登録。acf_add_local_field_group）
-- inc/defaults-<slug>.php（デフォルト値 = mockup値のフォールバック）
-- 必要時: inc/seed-posts.php（初期投入）
+- **テンプレートファイル**:
+  - 固定ページ ➡ `page-<slug-hyphen>.php` を生成する。
+  - トップページ ➡ `front-page.php` に割り当てて生成する。
+  - カスタム投稿タイプ（CPT） ➡ 個別のPHPテンプレートは生成せず、共通の `single-<cpt>.php` および `archive-<cpt>.php` に実装を集約し、データベースから動的にデータを読み出す構成にする。
+  - フォールバック ➡ `index.php`（テンプレート階層の最終フォールバック。WordPress必須）
+- **ACF定義ファイル（登録処理）**:
+  - 固定ページ ➡ 1ページ1ファイルに分断させず、すべての固定ページ用の定義を `inc/acf-pages.php` に集約して記述する。
+  - カスタム投稿タイプ ➡ 各カスタム投稿タイプごとに `inc/acf-<cpt>.php`（例: `inc/acf-nkk_center.php`）に集約して記述する。
+- **デフォルト値 / フォールバック処理**:
+  - `inc/defaults-<slug-hyphen>.php`（デフォルト値 = mockup値のフォールバック）を生成する。
+- **初期投稿データ投入**:
+  - 必要時: `inc/seed-posts.php`（初期投入用のwp-cliまたはPHPスクリプト）
 
 型マッピング:
 
@@ -77,7 +95,7 @@ acf-map.yaml のページごとに種別を判定する。
 
 - フィールドに L1 向けの instructions（記入例・改行ルール等）を付ける。
 - 本文エディタが不要なテンプレでは hide_on_screen に the_content を入れ、ACFのみで編集させる。
-- ファイル命名（page-<slug>.php、inc/acf-<slug>.php 等）を案件ごとに崩さない。
+- ファイル命名（page-<slug-hyphen>.php、inc/acf-pages.php 等）を案件ごとに崩さない。
 
 フォーム（forms があるページのみ）:
 
@@ -93,13 +111,16 @@ acf-map.yaml のページごとに種別を判定する。
 以下を確認する。1つでも不合格なら修正して再チェック。
 
 - field-map.json で acf-map.yaml の全フィールド（common 含む）が実装に対応しているか（欠落ゼロ）
-- ファイル構成が契約どおりか（page-<slug>.php・inc/acf-<slug>.php 等が揃っている）
+- ファイル構成が契約どおりか（page-<slug-hyphen>.php、inc/acf-pages.php や統合 ACF 定義ファイル等が揃っている）
 - php -l で全 PHP ファイルにエラーが無いか
 - pa11y-ci（WCAG 2.0 AA）で違反が 0 件か
 
-ゲートスクリプトが実装されている場合は実行する:
+ゲートスクリプトを実行する:
 
-    node .claude/ichiki/bin/gate.js check   # 未実装の場合は上の項目を手動確認
+    node .claude/ichiki/bin/gate.js check-all \
+      --acf-map acf-map.yaml \
+      --field-map field-map.json \
+      --theme-dir <theme_dir>
 
 全項目合格なら次のページへ進む。
 
@@ -111,6 +132,37 @@ acf-map.yaml のページごとに種別を判定する。
 - field-map.json のフィールド数（acf-map.yaml との対応率）
 - ゲート通過状況
 - 残課題（送信先未設定のフォーム等）
+
+続けて、**Local サイトシェルで実行する起動コマンドを必ず出力する**。
+コマンドは acf-map.yaml の `plugins_required` と実際の theme slug・ページ ID を埋めた状態で提示する（プレースホルダーのまま渡さない）。
+
+```bash
+# 1. 必須プラグインのインストール（plugins_required の値を並べる）
+wp plugin install advanced-custom-fields contact-form-7 safe-svg --activate
+
+# 2. テーマ有効化
+wp theme activate <theme-slug>
+
+# 3. 初期データ（site-options ページ・CF7 フォーム）
+wp eval-file wp-content/themes/<theme-slug>/inc/seed-posts.php
+
+# 4. 固定ページ一括作成
+# acf-map.yaml の pages から固定ページを展開する。
+# front-page に対応するページは --porcelain で ID を変数に受け取る。
+# blog（WP標準投稿一覧）に対応するページがあれば同様に受け取る。なければ BLOG_ID は不要。
+FRONT_ID=$(wp post create --post_type=page --post_status=publish --post_title="<front_title>" --post_name=<front_slug> --porcelain)
+# BLOG_ID=$(wp post create ...) ← blog ページがある案件のみ
+wp post create --post_type=page --post_status=publish --post_title="..." --post_name=... --page_template=... --porcelain
+# （残りページ数分）
+
+# 5. フロントページ設定（blog ページが無い案件は page_for_posts の行を省く）
+wp option update show_on_front page
+wp option update page_on_front  $FRONT_ID
+# wp option update page_for_posts $BLOG_ID
+
+# 6. パーマリンク再構築
+wp rewrite flush --hard
+```
 
 Phase 2（検収）に引き渡す準備が整ったことをユーザーに伝える。
 
