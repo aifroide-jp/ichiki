@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>forms</title>
+<link rel="stylesheet" href="css/base.css">
+</head>
+<body data-page="page" data-page-id="forms">
+<main id="main-content">
+<section data-section="s" class="s">
+  <form data-cf7="bad">
+    <input type="text" data-cf7-field="your-name">
+    <label><input type="checkbox" data-cf7-field="agree" value="同意する"> L24 同意か選択肢か不明</label>
+    <input type="file" data-cf7-field="photo">
+    <div data-cf7-group="child">L29 data-cf7-group-if が無い</div>
+    <input type="hidden" data-cf7-field="eid" data-cf7-value="post_slugg">
+  </form>
+  <div data-cf7-group="outside" data-cf7-group-if="f=v">L29 フォームの外</div>
+</section>
+</main>
+</body>
+</html>

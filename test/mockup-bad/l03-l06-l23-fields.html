@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>fields</title>
+<link rel="stylesheet" href="css/base.css">
+</head>
+<body data-page="page" data-page-id="fields">
+<main id="main-content">
+<section data-section="s" class="s">
+  <p data-acf="1Bad-Name">L03 命名規則違反</p>
+  <p data-acf="dup">L04 一つ目</p>
+  <p data-acf="dup">L04 二つ目</p>
+  <div data-acf="nodetype">L05 型が導出できないタグに data-acf-type が無い</div>
+  <p data-acf="badtype" data-acf-type="richtext">L06 無効な型</p>
+  <span data-acf="urlnohref" data-acf-type="url">L06 href も src も無いのに url 型</span>
+  <div data-acf="rich" data-acf-type="wysiwyg"><p data-acf="inner">L23 wysiwyg の中の宣言</p></div>
+</section>
+</main>
+</body>
+</html>
