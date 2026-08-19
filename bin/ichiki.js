@@ -51,7 +51,9 @@ function usage() {
 // 「案件Aで直した機能が案件Bに無い」が起きる。**起きること自体は防げない**ので、
 // せめて気づけるようにする。.ichiki.json の ichiki_version と照合するだけ。
 function checkVersion(args) {
-  const dir = args.find((a) => !a.startsWith('--')) || process.cwd();
+  // 値を取るオプションの値を位置引数と取り違えない（gate の --snapshot で踏んだ）。
+  const VALUE_OPTS = new Set(['--snapshot', '--acf-map', '--project']);
+  const dir = args.find((a, i) => !a.startsWith('--') && !VALUE_OPTS.has(args[i - 1])) || process.cwd();
   for (const base of [dir, process.cwd()]) {
     const f = path.join(path.resolve(base), '.ichiki.json');
     if (!fs.existsSync(f)) continue;

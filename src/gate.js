@@ -29,9 +29,27 @@ const SRC = __dirname;
 const argv = process.argv.slice(2);
 const allowUnresolved = argv.includes('--allow-unresolved-links');
 const withVisual = argv.includes('--visual');
-const mockupDir = argv.find((a) => !a.startsWith('--'));
+// 値を取るオプションの値を、位置引数と取り違えない。
+// 実測: --snapshot の値がモックのパスとして拾われ、期待値ファイルをスキャンしていた。
+const VALUE_OPTS = new Set(['--snapshot']);
+const positional = argv.filter((a, i) => !a.startsWith('--') && !VALUE_OPTS.has(argv[i - 1]));
+
+// モックの置き場所は .ichiki.json が持っている（既定 mockup: "./"）。
+// 本番の案件はリポジトリ直下がモックなので、引数を書かせない。引数があればそちらが優先。
+function config() {
+  const f = path.join(process.cwd(), '.ichiki.json');
+  if (!fs.existsSync(f)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(f, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+const CONF = config();
+const mockupDir = positional[0] || CONF.mockup || null;
 if (!mockupDir) {
-  console.error('使い方: node src/gate.js <mockupDir> [--allow-unresolved-links] [--visual]');
+  console.error('モックの場所が分かりません。引数で渡すか、.ichiki.json に mockup を書いてください。');
+  console.error('使い方: ichiki gate [mockupDir] [--allow-unresolved-links] [--visual] [--snapshot <json>]');
   process.exit(2);
 }
 
@@ -103,9 +121,12 @@ step('構造忠実性', 'node', [path.join(SRC, 'verify', 'structure.js'), mocku
 // **意図した変更なら --update で凍結し直す。**黙って通さない。
 // 凍結の期待値は案件側にある（案件ごとに中身が違う）。--snapshot で場所を渡す。
 // 渡されなければこのステップは飛ばす（初回や、まだ凍結していない案件のため）。
+// 凍結は移設中の道具で、要否は未決（proposal/DIFF-vs-ichiki.md 6.2節）。
+// .ichiki.json には書かせない。使うときだけ --snapshot で明示する。
 const snapArg = argv.indexOf('--snapshot');
-if (snapArg >= 0 && argv[snapArg + 1]) {
-  step('出力の凍結', 'node', [path.join(SRC, 'snapshot.js'), mockupDir, argv[snapArg + 1]]);
+const snapshotPath = snapArg >= 0 ? argv[snapArg + 1] : null;
+if (snapshotPath) {
+  step('出力の凍結', 'node', [path.join(SRC, 'snapshot.js'), mockupDir, snapshotPath]);
 }
 
 // 7. PHP の構文（php が無い環境ではスキップし、スキップした旨を必ず出す）

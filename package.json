@@ -1,10 +1,9 @@
 {
-  "name": "mockup2wp",
+  "name": "ichiki",
   "version": "0.3.0",
   "description": "Ichiki — 制約付きモックアップから WordPress クラシックテーマを決定的に生成し、検証・検収まで通す",
   "bin": {
-    "ichiki": "bin/ichiki.js",
-    "mockup2wp": "bin/mockup2wp.js"
+    "ichiki": "bin/ichiki.js"
   },
   "scripts": {
     "test": "node test/run.js && node test/check-rule-sync.js && node test/verify-rules.js",
