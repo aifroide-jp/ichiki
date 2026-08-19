@@ -1,6 +1,19 @@
 # C1/C3 テスト仕様書生成ツールの既知の限界
 
-`node generate.js` が出す `out/test-spec.md`（C1）・`out/l1-checklist.tsv`（C3）を読む前に把握しておくべき制約をまとめる。
+`ichiki testspec` が出す C1（テスト仕様書）・C3（検収シート）を読む前に把握しておくべき制約をまとめる。
+
+> **注記（2026-08-19）**: 本文の一部は**当時の Ichiki を調べた記録**であり、現状ではない。
+> 以下は既に解消している。
+>
+> | 当時 | 現在 |
+> |---|---|
+> | Phase1 は Claude Code が自由記述で PHP を書く | `src/converter` が宣言から機械的に生成する |
+> | acf-map.yaml を直接消費して PHP を生成するスクリプトが無い | `src/converter` がそれ |
+> | `bin/gate.js check-coverage` は「登録し忘れ」しか見ない | `src/verify/coverage.js` が「宣言 → `the_field()` が実際に出ているか」を見る。`bin/gate.js` は削除済み |
+> | セクション構造をクラス名の一致で検出する | `data-section` の宣言で決まる。検出しない |
+>
+> **調査の結論そのものは残す価値がある**（何を見落とすと何が起きるかの記録）ため、
+> 当時の記述を書き換えずに注記だけ足す。
 
 ## ① データ網羅性（検証済み・問題なし）
 
@@ -21,7 +34,7 @@
 ## ③ 実装の移植性（他Ichiki案件で使い回す場合の注意）
 
 - CPT判定・グルーピングは `inc/seed-posts.php` の `$pages` 配列と `nkk_seed_post()` 呼び出しを正規表現でパースして行っている。この配列名・関数名は rules/ichiki.md の固定契約ではなく、本案件のPhase1実装がたまたまその形だっただけ。他案件で書き方が違えば、パースは黙って空配列を返し、ページ種別判定が崩れる（クラッシュはしないが誤判定になる）
-- `lib/checks/visual-diff.js` は本案件だけにある `scripts/visual-diff/pages.js` の形式に依存。無い場合は全ページ「visual-diff未実行」として安全に縮退する
+- `lib/checks/visual-diff.js` は `ichiki diff:wp` が出すレポートの形式に依存。無い場合は全ページ「visual-diff未実行」として安全に縮退する（比較対象の一覧はかつて `scripts/visual-diff/pages.js` に手書きしていたが、案件側の JSON に移した）
 - `.ichiki.json` の `site_url` はLocal環境の実体とズレやすい（2026-08-06に実際に発生）。Localは `.local` ドメインとサイト固有の直接ポート（例: `http://localhost:10004`）を両方割り当てるが、`.local` ドメインがLocal側のルーターに正しく登録されていないと接続失敗になる。`site_url` を設定・変更する時は、対象URLに実際にHTTPで疎通できる（かつ`wp-json`のリンクヘッダーがそのURLで返る＝WordPress自身の`siteurl`と一致している）ことを毎回確認すること
 
 ## 根本原因メモ

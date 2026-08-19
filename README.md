@@ -119,9 +119,19 @@ ichiki gate <mockup>
   "mockup": "./",
   "theme_dir": "…/wp-content/themes/…",
   "site_url": "http://localhost:10000",
-  "ichiki_version": "0.3.0"
+  "ichiki_version": "0.3.0",
+
+  // 検収成果物の出力先・形式。書かなければ既定
+  "testspec": {
+    "out_dir": "docs/検収",
+    "visual_pages": "visual/pages.json",     // diff:wp の比較対象一覧
+    "visual_report": "visual/report"          // diff:wp の出力先
+  }
 }
 ```
+
+`testspec.visual_*` を書くと、C1 に `ichiki diff:wp` の差異率が入る。
+**書かなければ「未実行」と明記される**（自動 OK 扱いにはしない）。
 
 `ichiki_version` を書いておくと、本体とのバージョン違いを警告する。
 案件ごとに submodule を固定する運用では版ズレが起きるので、**気づけるようにしてある。**

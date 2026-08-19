@@ -42,7 +42,12 @@ async function main() {
   const cases = testCasePages(model.pages);
 
   const a11yMap = readA11yReport(A11Y_REPORT_PATH);
-  const visualDiff = readVisualDiffReport();
+  // 見た目の比較結果。場所は .ichiki.json の testspec 節で指定する。
+  // 書かなければ「未実行」として縮退する（自動 OK 扱いにはしない）。
+  const visualDiff = readVisualDiffReport(
+    TS.visual_pages ? path.resolve(REPO_ROOT, TS.visual_pages) : null,
+    TS.visual_report ? path.resolve(REPO_ROOT, TS.visual_report, 'index.html') : null
+  );
 
   console.log(`acf-map.yaml 全ページ数: ${model.pages.length} / テストケース数: ${cases.length}`);
   console.log(`site_url: ${SITE_URL}`);

@@ -306,7 +306,7 @@ CSS で `translateX(-50%)` して繋ぐ無限スクロールは、**DOM に2周�
 <footer class="footer--minimal">…</footer>
 ```
 
-変換器の扱い（`converter/lib/model.js` の `ownsShell`）:
+変換器の扱い（`src/converter/lib/model.js` の `ownsShell`）:
 
 - `data-common="header"` が**無い**ページは `get_header()` / `get_footer()` を呼ばず、
   `<head>` から `</html>` まで自前で持つ1枚のテンプレートになる
