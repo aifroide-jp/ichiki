@@ -1,4 +1,4 @@
-project: .claude
+project: fixture
 generated_by: proposal/scan/scan.js (制約語彙版・推測なし)
 common:
   - id: header

@@ -12,7 +12,7 @@ const tmp = path.join(__dirname, '.tmp-out');
 const expPath = path.join(__dirname, 'expected', 'acf-map.yaml');
 
 fs.mkdirSync(tmp, { recursive: true });
-const r = spawnSync('node', [path.join(root, 'src', 'scan.js'), path.join(root, 'fixture'), tmp], {
+const r = spawnSync('node', [path.join(root, 'src', 'scan.js'), path.join(__dirname, 'fixture'), tmp, '--project', 'fixture'], {
   encoding: 'utf8',
 });
 if (r.status !== 0) {

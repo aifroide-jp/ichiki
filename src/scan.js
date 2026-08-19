@@ -249,6 +249,8 @@ function renderClaudeMd(acfMap, tmplPath) {
 }
 
 function main() {
+  const pIdx = process.argv.indexOf('--project');
+  const projectName = pIdx >= 0 ? process.argv[pIdx + 1] : null;
   const args = process.argv.slice(2);
   const rootDir = path.resolve(process.cwd(), args[0] || path.join(__dirname, '..', 'mockup'));
   const outDir = path.resolve(process.cwd(), args[1] || path.join(__dirname, 'out'));
@@ -282,7 +284,11 @@ function main() {
   }
 
   const acfMap = {
-    project: path.basename(path.resolve(rootDir, '..', '..')),
+    // プロジェクト名。--project で明示できる。
+    // 省略時はモックの2つ上のディレクトリ名から導く（置き場所への仮定なので当てにならない。
+    // 実測: fixture を test/ 配下へ移しただけで .claude → ichiki に変わった）。
+    // 本来は .ichiki.json の project を見るべき。移設が済んだら直す。
+    project: projectName || path.basename(path.resolve(rootDir, '..', '..')),
     generated_by: 'proposal/scan/scan.js (制約語彙版・推測なし)',
     common: [...commonBlocks.values()],
     pages,

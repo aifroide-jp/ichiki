@@ -1,0 +1,198 @@
+#!/usr/bin/env node
+'use strict';
+
+// 検証ゲートを一括で流す。**最初に落ちたところで止める。**
+//
+//   node proposal/gate.js [mockupDir] [オプション]
+//
+//     --allow-unresolved-links  未解決の内部リンクを警告に落として変換を続行する
+//     --visual                  ピクセル比較も実行する（遅いので既定では走らせない）
+//     --snapshot <expected.json> 出力の凍結と突き合わせる（案件側の期待値ファイル）
+//
+// 個々のツールは README.md の「ゲート一覧」に説明がある。ここはその順番を固定するだけで、
+// 検査の中身は一切持たない（持つと N 個目の実装になる）。
+//
+// --allow-unresolved-links について:
+//   本番案件ではモック＝全ページなので、未解決リンクは本当の不具合であり、
+//   このオプションを使う理由が無い。
+//   一方この PoC は 51ページ中 11ページだけを書き直したサンプルなので、
+//   書いていないページへのリンクは解決しなくて当然であり、恒久的に必要になる。
+//   どちらの意味で渡しているかを、実行のたびに出力へ明示する。
+
+const { spawnSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const ROOT = path.join(__dirname, '..');   // Ichiki のルート
+const SRC = __dirname;
+const argv = process.argv.slice(2);
+const allowUnresolved = argv.includes('--allow-unresolved-links');
+const withVisual = argv.includes('--visual');
+const mockupDir = argv.find((a) => !a.startsWith('--'));
+if (!mockupDir) {
+  console.error('使い方: node src/gate.js <mockupDir> [--allow-unresolved-links] [--visual]');
+  process.exit(2);
+}
+
+// 作業用ディレクトリ。案件リポジトリを汚さないよう一時領域に置く。
+const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ichiki-gate-'));
+const themeDir = path.join(workDir, 'theme');
+const scanDir = path.join(workDir, 'scan');
+
+// 検査には2種類ある。
+//
+//   連鎖（blocking）: 前段が壊れると後段の結果が無意味になるもの。
+//                     lint → scan → 変換 → 生成物の検証。ここは落ちたら止める。
+//   独立（blocking:false）: 他の検査の前提にならないもの。a11y とピクセル比較。
+//                     コントラスト比が悪くても変換は正しく動く。
+//
+// 以前は全部を同列に止めていたため、a11y が落ちるとテーマが生成されなかった。
+// 依存していないものを止めるのは、ゲートの設計としてただの誤りだった。
+// 独立した検査の失敗は記録して続行するが、**最終的な終了コードは非ゼロ**にする。
+const steps = [];
+function step(name, cmd, args, opts = {}) {
+  steps.push({ name, cmd, args, blocking: true, ...opts });
+}
+
+// 1. ルール自体が健全か（語彙・lint・プロンプトの3者が揃っているか）
+step('ルール同期', 'node', [path.join(ROOT, 'test', 'check-rule-sync.js')]);
+
+// 2. モックが規約に適合しているか
+step('lint', 'node', [
+  path.join(SRC, 'lint', 'lint.js'),
+  mockupDir,
+  // L30 の「行き先がモックにありません」は変換器の未解決リンクと同じ事実なので、
+  // 片方だけ止めると「lint は通らないが変換は通る」というちぐはぐな状態になる。
+  ...(allowUnresolved ? ['--allow-unresolved-links'] : []),
+]);
+
+// 3. アクセシビリティ（モック段階で通す）
+// 変換は色に依存しないので、落ちても後段は続行する。
+step('a11y', 'node', [path.join(SRC, 'a11y', 'check.js'), mockupDir], { blocking: false });
+
+// 4. テキストの取りこぼしがゼロか／acf-map.yaml が出るか
+step('scan', 'node', [
+  path.join(SRC, 'scan.js'),
+  mockupDir,
+  scanDir,
+]);
+
+// 5. テーマ生成
+step(
+  '変換',
+  'node',
+  [
+    path.join(SRC, 'converter', 'convert.js'),
+    mockupDir,
+    themeDir,
+    ...(allowUnresolved ? ['--allow-unresolved-links'] : []),
+    // scan が出した acf-map.yaml と突き合わせる。
+    // scan と convert は同じモックを読む独立した2実装なので、読みが割れたら
+    // どちらかにバグがある。ここで止めないと、その事実が消える。
+    '--acf-map', path.join(scanDir, 'acf-map.yaml'),
+  ]
+);
+
+// 6. 生成物の検証（宣言の出力漏れ／class の消失）
+step('フィールド突合', 'node', [path.join(SRC, 'verify', 'coverage.js'), mockupDir, themeDir]);
+step('構造忠実性', 'node', [path.join(SRC, 'verify', 'structure.js'), mockupDir, themeDir]);
+
+// 6.5 出力の凍結（回帰ハーネス）
+// 移設・リファクタで出力が変わったら、どのファイルが変わったかを名指しで出す。
+// **意図した変更なら --update で凍結し直す。**黙って通さない。
+// 凍結の期待値は案件側にある（案件ごとに中身が違う）。--snapshot で場所を渡す。
+// 渡されなければこのステップは飛ばす（初回や、まだ凍結していない案件のため）。
+const snapArg = argv.indexOf('--snapshot');
+if (snapArg >= 0 && argv[snapArg + 1]) {
+  step('出力の凍結', 'node', [path.join(SRC, 'snapshot.js'), mockupDir, argv[snapArg + 1]]);
+}
+
+// 7. PHP の構文（php が無い環境ではスキップし、スキップした旨を必ず出す）
+step('php -l', null, null, { php: true });
+
+// 8. 見た目（既定では走らせない。--visual で有効化）
+if (withVisual) {
+  step('ピクセル比較', 'node', [path.join(SRC, 'visual', 'compare.js')], { blocking: false });
+}
+
+function runPhpLint() {
+  const probe = spawnSync('php', ['-v'], { encoding: 'utf8' });
+  if (probe.status !== 0) {
+    return { status: 0, output: '', skipped: 'php が見つからないためスキップしました' };
+  }
+  const files = [];
+  (function walk(d) {
+    if (!fs.existsSync(d)) return;
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.php')) files.push(p);
+    }
+  })(themeDir);
+  if (files.length === 0) return { status: 1, output: 'テーマに .php が1つもありません' };
+  const bad = [];
+  for (const f of files) {
+    const r = spawnSync('php', ['-l', f], { encoding: 'utf8' });
+    if (r.status !== 0) bad.push((r.stdout || '') + (r.stderr || ''));
+  }
+  return { status: bad.length ? 1 : 0, output: bad.join('\n'), note: `${files.length}ファイル` };
+}
+
+function main() {
+  console.log(`対象: ${mockupDir}`);
+  if (allowUnresolved) {
+    console.log('※ --allow-unresolved-links: 未解決の内部リンクを警告に落としています。');
+    console.log('   本番案件では使わないこと（モック＝全ページなので未解決＝不具合）。');
+  }
+  console.log('');
+
+  const failures = [];
+  let stoppedAt = null;
+
+  for (const s of steps) {
+    const r = s.php
+      ? runPhpLint()
+      : (() => {
+          const p = spawnSync(s.cmd, s.args, { encoding: 'utf8' });
+          return { status: p.status, output: (p.stdout || '') + (p.stderr || '') };
+        })();
+
+    if (r.status !== 0) {
+      failures.push({ name: s.name, output: r.output, blocking: s.blocking });
+      if (s.blocking) {
+        console.log(`✗ ${s.name}  ← ここで停止（後段はこの結果に依存するため）`);
+        stoppedAt = s.name;
+        break;
+      }
+      console.log(`✗ ${s.name}  （変換はこれに依存しないので続行）`);
+      continue;
+    }
+    const tail = r.skipped ? `（${r.skipped}）` : r.note ? `（${r.note}）` : '';
+    console.log(`✓ ${s.name}${tail}`);
+  }
+
+  console.log('');
+
+  if (failures.length === 0) {
+    console.log(`全ゲート通過。生成テーマ: ${themeDir}`);
+    if (!withVisual) console.log('※ ピクセル比較は未実行です（--visual で実行）。');
+    process.exit(0);
+  }
+
+  for (const f of failures) {
+    console.log(`===== ${f.name} の出力 =====`);
+    console.log(f.output.trimEnd());
+    console.log('');
+  }
+
+  if (stoppedAt) {
+    console.log(`${stoppedAt} で停止しました。テーマは生成していません。`);
+  } else {
+    console.log(`テーマは生成しました: ${themeDir}`);
+    console.log(`ただし ${failures.map((f) => f.name).join(' / ')} が失敗しています。`);
+  }
+  process.exit(1);
+}
+
+main();
