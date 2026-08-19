@@ -31,6 +31,7 @@ const COMMANDS = [
   ['pa11yci',     [SRC, 'testspec', 'gen-pa11yci.js'], '[案件ルート]',                                  '.pa11yci.json を生成'],
   ['gate',        [SRC, 'gate.js'],                    '<mockup> [--allow-unresolved-links] [--visual] [--snapshot <json>]', '上を順に流す。最初に落ちたところで止まる'],
   ['serve',       [SRC, 'serve.js'],                   '[mockup] [port]',                              'モックを配信するだけの静的サーバ'],
+  ['doctor',      [SRC, 'doctor.js'],                  '[案件ルート]',                                 '案件側の受け入れ状態（依存・設定・コマンドのコピー）'],
   ['selftest',    null,                                '',                                             'Ichiki 自身の検査（scan回帰・ルール同期・負のテスト）'],
 ];
 

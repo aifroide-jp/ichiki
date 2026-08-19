@@ -7,6 +7,63 @@
 node bin/ichiki.js --help
 ```
 
+## はじめに（案件への入れ方）
+
+Ichiki は案件リポジトリに **submodule** として入れて使う。
+
+```bash
+# 1. 取り込む
+git submodule add https://github.com/aifroide-jp/ichiki .claude/ichiki
+git submodule update --init --recursive
+
+# 2. 依存を入れる
+cd .claude/ichiki
+npm install
+npx playwright install chromium    # 見た目の比較を使うとき
+cd ../..
+
+# 3. スラッシュコマンドを配置する
+mkdir -p .claude/commands
+cp .claude/ichiki/commands/*.md .claude/commands/
+
+# 4. 案件設定を作る
+cat > .ichiki.json <<'JSON'
+{
+  "project": "案件名",
+  "mockup": "./",
+  "theme_dir": "/Users/you/Local Sites/案件名/app/public/wp-content/themes/案件名",
+  "site_url": "http://localhost:10000",
+  "ichiki_version": "0.3.0"
+}
+JSON
+
+# 5. 受け入れ状態を確認する
+node .claude/ichiki/bin/ichiki.js doctor
+```
+
+手順3が要るのは、**Claude Code が `.claude/commands/` しか見ない**ため。
+`.claude/ichiki/commands/` に置いても認識されないのでコピーする。
+
+### 更新するとき
+
+**手順3のコピーを必ずやり直すこと。** ここを忘れると古い手順が動き続ける。
+
+```bash
+cd .claude/ichiki
+git fetch && git checkout <新しいコミット>
+npm install
+cd ../..
+cp .claude/ichiki/commands/*.md .claude/commands/     # ← 忘れやすい
+# .ichiki.json の ichiki_version も更新する
+node .claude/ichiki/bin/ichiki.js doctor
+```
+
+`doctor` がコピーのズレとバージョン違いを見る。**忘れても気づけるようにしてある。**
+
+> 実測: `commands/run.md` を新しい手順へ書き換えたのに、案件側は古いコピーのままで、
+> `/run` を叩けば旧手順（AI が1ページずつテンプレートを書く）が動く状態だった。
+> 書き換えた本人が塞げたと思い込んでいた。**静かに壊れるので、検査が要る。**
+
 ## 考え方
 
 デザインは主観なので人がモックで合意する。構造は客観なので機械が検査する。
@@ -80,8 +137,14 @@ test/             fixture / mockup-bad / expected と自己検査
 ## 検査
 
 ```bash
-ichiki selftest
+ichiki doctor      # 案件側の受け入れ状態（依存・設定・コマンドのコピー）
+ichiki selftest    # Ichiki 自身の健全性
 ```
+
+`doctor` が見るもの: 依存が入っているか / `.ichiki.json` があるか /
+バージョンが一致しているか / **スラッシュコマンドのコピーが本体と同じか**。
+
+`selftest` が見るもの:
 
 | | |
 |---|---|
@@ -92,13 +155,6 @@ ichiki selftest
 3つ目が要るのは、**検査が通っていても検査自体が壊れていることがある**ため。
 実測で、フィールド突合が名前で照合したまま出力がキー指定に変わり、
 ずっと素通りしていた（3/327 で「通った」と言い続けていた）。
-
-## セットアップ
-
-```bash
-npm install
-npx playwright install chromium   # 見た目の比較を使うとき
-```
 
 ## 対象と前提
 
