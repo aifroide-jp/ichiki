@@ -5,65 +5,44 @@
   <title>アーバンネイチャー北九州</title>
   <meta name="description" content="北九州の自然と暮らすためのネイチャーポジティブ・サイト">
   <meta property="og:title" content="アーバンネイチャー北九州">
-  <meta property="og:image" content="/assets/ogp.jpg">
-  <link rel="stylesheet" href="styles.css">
+  <meta property="og:image" content="images/ogp.jpg">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/page/front.css">
 </head>
-<body>
-  <nav class="global-nav">
-    <a href="index.html">トップ</a>
-    <a href="about.html">活動について</a>
-    <a href="contact.html">お問合せ</a>
-  </nav>
+<body data-page="front">
+  <header data-common="header">
+    <nav data-nav="global" data-nav-current="active">
+      <a href="index.html" class="active">トップ</a>
+      <a href="contact.html">お問合せ</a>
+    </nav>
+  </header>
 
-  <section id="hero" class="hero">
-    <div class="bg-overlay" aria-hidden="true"></div>
-    <svg class="bg-wave" aria-hidden="true" viewBox="0 0 100 20"><path d="M0 10 Q25 0 50 10 T100 10"/></svg>
-    <h1>北九州の自然と暮らす</h1>
-    <p>ネイチャーポジティブを地域から進めます。</p>
-    <img class="hero-image" src="/assets/hero.jpg" alt="北九州の自然">
-  </section>
+  <main id="main-content">
+    <section id="hero" class="hero" data-section="hero">
+      <div class="bg-overlay" data-deco aria-hidden="true"></div>
+      <h1 data-acf="hero_title">北九州の自然と暮らす</h1>
+      <p data-acf="hero_lead">ネイチャーポジティブを地域から進めます。</p>
+      <img class="hero-image" data-acf="hero_image" src="images/hero.jpg" alt="北九州の自然" width="1200" height="600">
+    </section>
 
-  <section id="features" class="features">
-    <div class="pattern-dots" aria-hidden="true"></div>
-    <div class="feature">
-      <svg class="feature-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
-      <h3>活動拠点</h3>
-      <p>市内各地の拠点を紹介します。</p>
-    </div>
-    <div class="feature">
-      <svg class="feature-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18"/></svg>
-      <h3>地域との繋がり</h3>
-      <p>市民や企業と共に取り組みます。</p>
-    </div>
-    <div class="feature">
-      <svg class="feature-icon" viewBox="0 0 24 24"><path d="M3 12h18"/></svg>
-      <h3>活動事例</h3>
-      <p>これまでの取り組みを掲載します。</p>
-    </div>
-    <div class="deco-line" aria-hidden="true"></div>
-  </section>
+    <section class="spots" data-section="spots">
+      <h2 data-acf="spots_title">自然スポット</h2>
+      <div class="spot-list" data-loop="spot" data-loop-count="3">
+        <article data-loop-item>
+          <a href="spot.html">
+          <img data-acf="hero_image" src="images/spot.jpg" alt="平尾台の草原" width="400" height="300">
+          <h3 data-acf="hero_title">平尾台</h3></a>
+        </article>
+        <article data-loop-sample>
+          <img src="images/spot.jpg" alt="曽根干潟" width="400" height="300">
+          <h3>曽根干潟</h3>
+        </article>
+      </div>
+    </section>
+  </main>
 
-  <!-- T3テスト: id/classなしの匿名セクション → section_N -->
-  <!-- T2テスト: alt なし画像 → alt_missing: true -->
-  <section style="padding:60px 0;background:#fff;">
-    <h2>お知らせ</h2>
-    <p>最新のお知らせです。</p>
-    <img src="/assets/news.jpg">
-  </section>
-  <!-- T2テスト: alt="" 空文字 → alt_missing: true -->
-  <section style="padding:60px 0;background:#f5f5f5;">
-    <h2>動画一覧</h2>
-    <p>動画の説明です。</p>
-    <img src="/assets/video-thumb.jpg" alt="">
-  </section>
-
-  <!-- T5テスト: inline style background-image → 装飾候補 -->
-  <div style="background-image: url('/assets/inline-bg.jpg')"></div>
-  <!-- T5テスト: CSS background-image クラス → 装飾候補 -->
-  <div class="bg-section"></div>
-
-  <footer>
-    <p>© Urban Nature Kitakyushu</p>
+  <footer data-common="footer">
+    <p data-acf="footer_copyright">&copy; 2026 アーバンネイチャー北九州</p>
   </footer>
 </body>
 </html>

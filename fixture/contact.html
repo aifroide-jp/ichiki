@@ -2,53 +2,35 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <title>お問合せ｜アーバンネイチャー北九州</title>
-  <meta name="description" content="お問合せフォーム">
-  <link rel="stylesheet" href="styles.css">
+  <title>お問合せ | アーバンネイチャー北九州</title>
+  <meta name="description" content="アーバンネイチャー北九州へのお問合せ">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/page/contact.css">
 </head>
-<body>
-  <nav class="global-nav">
-    <a href="index.html">トップ</a>
-    <a href="about.html">活動について</a>
-    <a href="contact.html">お問合せ</a>
-  </nav>
+<body data-page="page" data-page-id="contact">
+  <header data-common="header">
+    <nav data-nav="global" data-nav-current="active">
+      <a href="index.html">トップ</a>
+      <a href="contact.html" class="active">お問合せ</a>
+    </nav>
+  </header>
 
-  <!-- T3テスト: section祖先なし → パス3でクラス名から page_header -->
-  <div class="page-header">
-    <h1>お問合せページ</h1>
-    <p>お気軽にご連絡ください。</p>
-  </div>
+  <main id="main-content">
+    <section id="contact" class="contact" data-section="contact_form">
+      <h1 data-acf="hero_title">お問合せ</h1>
+      <p data-acf="hero_lead">下記フォームよりお問い合わせください。</p>
+      <form data-cf7="contact">
+        <input type="text"  data-cf7-field="your-name"  data-cf7-required class="form-input" placeholder="お名前">
+        <input type="email" data-cf7-field="your-email" data-cf7-required class="form-input" placeholder="メールアドレス">
+        <textarea data-cf7-field="your-message" data-cf7-required class="form-input" placeholder="お問い合わせ内容"></textarea>
+        <label class="check-label"><input type="checkbox" data-cf7-field="privacy" data-cf7-acceptance data-cf7-required value="プライバシーポリシーに同意する">プライバシーポリシーに同意する</label>
+        <button type="submit" data-cf7-submit>送信する</button>
+      </form>
+    </section>
+  </main>
 
-  <!-- T3テスト: id が特殊文字のみ（x になるケース）→ section_N -->
-  <section id="---">
-    <h2>よくあるご質問</h2>
-  </section>
-
-  <!-- T3テスト: class がタグ名と同じ → 次の class (white) を採用 -->
-  <section class="section white">
-    <h2>ご利用案内</h2>
-    <p>サービスのご案内です。</p>
-  </section>
-
-  <!-- T3テスト: id が数字始まり → sec_ 前置 -->
-  <section id="2024">
-    <h2>2024年の活動</h2>
-    <p>昨年の活動実績です。</p>
-  </section>
-
-  <section id="contact" class="contact">
-    <h1>お問合せ</h1>
-    <p>下記フォームよりお問い合わせください。</p>
-    <form action="/submit" method="post">
-      <input type="text" name="your-name" placeholder="お名前">
-      <input type="email" name="your-email" placeholder="メールアドレス">
-      <textarea name="your-message" placeholder="お問い合わせ内容"></textarea>
-      <button type="submit">送信する</button>
-    </form>
-  </section>
-
-  <footer>
-    <p>© Urban Nature Kitakyushu</p>
+  <footer data-common="footer">
+    <p data-acf="footer_copyright">&copy; 2026 アーバンネイチャー北九州</p>
   </footer>
 </body>
 </html>

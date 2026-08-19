@@ -5,19 +5,20 @@
 // generated_at 行は日付で毎回変わるため比較対象から除外する。
 const fs = require('fs');
 const path = require('path');
-const { runScan } = require('../src/scan');
+const { spawnSync } = require('child_process');
 
 const root = path.join(__dirname, '..');
 const tmp = path.join(__dirname, '.tmp-out');
 const expPath = path.join(__dirname, 'expected', 'acf-map.yaml');
 
 fs.mkdirSync(tmp, { recursive: true });
-runScan({
-  dir: path.join(root, 'fixture'),
-  out: tmp,
-  project: 'demo',
-  tmpl: path.join(root, 'templates', 'CLAUDE.md.tmpl'),
+const r = spawnSync('node', [path.join(root, 'src', 'scan.js'), path.join(root, 'fixture'), tmp], {
+  encoding: 'utf8',
 });
+if (r.status !== 0) {
+  console.error('NG: scan が失敗しました\n' + (r.stdout || '') + (r.stderr || ''));
+  process.exit(1);
+}
 
 const norm = s => s.split('\n').filter(l => !l.startsWith('generated_at:')).join('\n');
 const got = norm(fs.readFileSync(path.join(tmp, 'acf-map.yaml'), 'utf8'));
