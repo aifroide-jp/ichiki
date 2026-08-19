@@ -1,15 +1,22 @@
 #!/usr/bin/env node
 'use strict';
 
-// 語彙（vocabulary.md）・lint 実装（lint/rules/*.js）・生成プロンプト（prompts/*.md）の
-// 3者にズレが無いかを、ルールID（L01〜）の存在で機械的に照合する。
+// 語彙（rules/vocabulary.md）と lint 実装（src/lint/rules/*.js）にズレが無いかを、
+// ルールID（L01〜）の存在で機械的に照合する。
 //
 // なぜ要るか: 同じルールを複数箇所で実装・記述すると必ず乖離する。
 // 実際に本検証中、相対パス化の際に lint だけ直して変換器が取り残され、
 // 18件のエラーで停止した。文章で「二重管理しない」と書いても守られない。
 //
-// このチェックは「IDが3者に存在するか」しか見ない（内容の一致までは見ない）。
-// ID の欠落＝どこかを更新し忘れた、という最も起きやすい事故だけを確実に捕まえる。
+// このチェックは「IDが両方に存在するか」しか見ない（内容の一致までは見ない）。
+// ID の欠落＝どちらかを更新し忘れた、という最も起きやすい事故だけを確実に捕まえる。
+//
+// **生成プロンプトは照合対象から外した。**
+// 以前は3者（語彙・lint・プロンプト）を見ていたが、プロンプトが規約を再掲していたのが前提。
+// 規約を語彙の1次参照だけにし、プロンプトからルールの記述を無くしたので、
+// ルールIDを要求する意味が無くなった（要求すると再掲を強制することになる）。
+// 実測: 再掲していた頃は data-acf-type が15箇所 / wysiwyg が20箇所で二重に書かれ、
+// **ID は揃っているのに内容がズレる**状態だった。ID の一致は内容の一致を保証しない。
 
 const fs = require('fs');
 const path = require('path');
@@ -17,7 +24,6 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const VOCAB = path.join(ROOT, 'rules', 'vocabulary.md');
 const RULES_DIR = path.join(ROOT, 'src', 'lint', 'rules');
-const PROMPT = path.join(ROOT, 'prompts', 'mockup-generation.md');
 
 const idsIn = (text) => new Set((text.match(/\bL\d{2}\b/g) || []));
 
@@ -41,7 +47,6 @@ function main() {
   const retired = retiredIdsIn(vocabText);
   const vocab = idsIn(vocabText);
   for (const id of retired) vocab.delete(id);
-  const prompt = idsIn(fs.readFileSync(PROMPT, 'utf8'));
 
   // lint 側は「ルールIDを実際に発行しているか」で見る（コメントだけの言及は数えない）。
   // 発行の書き方は2通りある:
@@ -60,25 +65,20 @@ function main() {
     for (const m of src.matchAll(/'(L\d{2})'/g)) impl.add(m[1]);
   }
 
-  const all = [...new Set([...vocab, ...prompt, ...impl])].filter((id) => !retired.has(id)).sort();
-  const rows = all.map((id) => ({
-    id,
-    vocabulary: vocab.has(id),
-    lint: impl.has(id),
-    prompt: prompt.has(id),
-  }));
+  const all = [...new Set([...vocab, ...impl])].filter((id) => !retired.has(id)).sort();
+  const rows = all.map((id) => ({ id, vocabulary: vocab.has(id), lint: impl.has(id) }));
 
-  // 削除したルールが実装やプロンプトに残っていないかを逆向きに見る。
+  // 削除したルールが実装に残っていないかを逆向きに見る。
   // 消し忘れると「語彙には無いのに検査だけされる」状態になり、
   // モックを書く側からは理由の分からない指摘として現れる。
-  const zombies = [...retired].filter((id) => impl.has(id) || prompt.has(id)).sort();
+  const zombies = [...retired].filter((id) => impl.has(id)).sort();
 
-  const bad = rows.filter((r) => !(r.vocabulary && r.lint && r.prompt));
+  const bad = rows.filter((r) => !(r.vocabulary && r.lint));
 
-  console.log('ルールID   語彙  lint  プロンプト');
+  console.log('ルールID   語彙  lint');
   for (const r of rows) {
     const mark = (b) => (b ? ' ○ ' : ' ✗ ');
-    console.log(`  ${r.id}    ${mark(r.vocabulary)}  ${mark(r.lint)}  ${mark(r.prompt)}`);
+    console.log(`  ${r.id}    ${mark(r.vocabulary)}  ${mark(r.lint)}`);
   }
   console.log('');
   if (retired.size > 0) {
@@ -86,21 +86,16 @@ function main() {
     console.log('');
   }
   if (bad.length === 0 && zombies.length === 0) {
-    console.log(`RESULT: 3者すべてに揃っています（有効 ${rows.length}ルール / 欠番 ${retired.size}件）`);
+    console.log(`RESULT: 語彙と lint が揃っています（有効 ${rows.length}ルール / 欠番 ${retired.size}件）`);
     process.exit(0);
   }
   for (const id of zombies) {
-    const where = [impl.has(id) && 'lint 実装', prompt.has(id) && 'プロンプト'].filter(Boolean);
-    console.log(`  ${id}: 欠番のはずが ${where.join(' / ')} に残っています`);
+    console.log(`  ${id}: 欠番のはずが lint 実装に残っています`);
   }
   if (bad.length === 0) process.exit(1);
   console.log(`RESULT: ${bad.length}件のズレがあります`);
   for (const r of bad) {
-    const missing = [
-      !r.vocabulary && 'vocabulary.md',
-      !r.lint && 'lint 実装',
-      !r.prompt && 'プロンプト',
-    ].filter(Boolean);
+    const missing = [!r.vocabulary && 'vocabulary.md', !r.lint && 'lint 実装'].filter(Boolean);
     console.log(`  ${r.id}: ${missing.join(' / ')} に無い`);
   }
   process.exit(1);

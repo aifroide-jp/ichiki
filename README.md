@@ -77,9 +77,13 @@ node .claude/ichiki/bin/ichiki.js doctor
 
 宣言があれば推測は要らない。**宣言が足りなければエラーで停止する。** 推測して埋めない。
 
-規約は `rules/vocabulary.md`（L01〜L31）。lint がその実装で、
-`prompts/mockup-generation.md` が AI にモックを作らせるときの指示書。
-**3者はルールIDで対応**していて、`ichiki selftest` がズレを検出する。
+規約は `rules/vocabulary.md`（L01〜L31）が**唯一の正**。lint がその実装で、
+両者はルールIDで対応する。`ichiki selftest` がズレを検出する。
+
+`prompts/mockup-generation.md`（AI にモックを作らせる指示書）は**規約を持たない。**
+「まず vocabulary.md を読む」と指示するだけ。以前は規約を再掲していたが、
+語彙が育つたびに両方を直すことになり、`data-acf-type` 15箇所 / `wysiwyg` 20箇所が
+二重に書かれていた。**ルールは1次参照だけにする。**
 
 `rules/` の2ファイルは書くことを分けている。**同じことを2箇所に書かない。**
 
@@ -140,7 +144,7 @@ src/
 rules/
   ichiki.md       前提・環境・成果物の規定・運用の約束（案件をどう進めるか）
   vocabulary.md   モックの書き方 L01〜L31 と宣言の一覧（モックをどう書くか）
-prompts/          モックアップ生成プロンプト
+prompts/          モックアップ生成プロンプト（規約は持たない。vocabulary.md を読ませる）
 templates/        案件用 CLAUDE.md のテンプレート
 commands/         Claude Code のスラッシュコマンド（/setup /run）
 test/             fixture / mockup-bad / expected と自己検査
@@ -161,7 +165,7 @@ ichiki selftest    # Ichiki 自身の健全性
 | | |
 |---|---|
 | scan の回帰 | `test/fixture` の出力が `test/expected` と一致するか |
-| ルール同期 | 語彙・lint・プロンプトの3者にルールIDが揃っているか |
+| ルール同期 | 語彙と lint にルールIDが揃っているか（欠番が実装に残っていないかも見る） |
 | 負のテスト | **全ルールが実際に違反を検出できるか**（`test/mockup-bad`） |
 
 3つ目が要るのは、**検査が通っていても検査自体が壊れていることがある**ため。
