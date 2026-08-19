@@ -2,22 +2,42 @@
 
 <!-- 全案件共通。案件用CLAUDE.mdから @import される。ここは案件ごとに書き換えない -->
 
+## このファイルと vocabulary.md の分担
+
+`rules/` には2つのルールがあり、書くことを分けている。**同じことを2箇所に書かない。**
+
+| | 中身 |
+|---|---|
+| **ichiki.md**（このファイル） | 前提・環境・成果物の規定・運用の約束。**案件をどう進めるか** |
+| **vocabulary.md** | モックの書き方（L01〜L31 と宣言の一覧）。**モックをどう書くか** |
+
+モックの書き方に触れる箇所は、ここでは要点だけ書いて `vocabulary.md` の節番号を指す。
+詳細を両方に書くと必ずズレる（実測: 命名規則・タブ分類・繰り返し・共通領域の判定の
+4箇所が、実装が変わったあとも旧方式のまま残っていた）。
+
 ## プロジェクト前提
 - WordPress 6.5+ / PHP 8.1+ / Classicテーマ（ブロックテーマ・FSEは対象外）
 - 必須プラグイン: Advanced Custom Fields（無料版）/ Safe SVG / Contact Form 7
 - 言語: 日本語単一 / 本番: エックスサーバー / 開発: Local
 
 ## ACF生成ルール
-- 全編集対象要素をACFフィールド化する
-- 命名規則: `{セクション名}_{要素種別}_{連番}`（連番は同種が複数あるときだけ付与。例: hero_title, features_icon_1）
-- 数字始まりのセクション名は `sec_` を前置する（例: id="2024" → sec_2024_title）。ACF/PHPのキー・JS変数として使えるようにするため
-- ページIDは mockup フォルダからの相対パスで生成する。index.html はディレクトリ名に畳む（例: about/index.html → about、center/biotope.html → center_biotope）。ルート直下の index.html は index
-- タブ分類:
-  - ①メインコンテンツ: h1〜h3・p・メイン領域のimg（初期展開）
-  - ②セクション別: セクション内の繰り返し要素・サブ画像・機能アイコンSVG（初期展開）
-  - ③装飾要素: 要素または祖先が `aria-hidden="true"`、またはclassに `bg-/pattern-/deco-` を含む h1〜h6/p/img/svg（折りたたみ）
+
+**フィールドの決め方はモック側の宣言で決まる。詳細は `rules/vocabulary.md` を見ること。**
+ここには「どの案件でも変わらない約束」だけを書く。
+
+- 全編集対象要素をACFフィールド化する。**編集対象かどうかはモックの `data-acf` が決める**
+- 名前は人が意味ベースで付ける（`data-acf` の値がそのままフィールド名になる）。
+  機械が `{セクション名}_{要素種別}_{連番}` を組み立てることはしない。
+  したがって「機械命名 → 意味名へのリネーム」工程と `field-map.json` の書き換えは発生しない
+- 名前は ASCII 小文字・数字・アンダースコアのみ。**数字始まりは禁止**（vocabulary.md L03）。
+  PHP変数・ACFキー・JS変数として使えるようにするため
+- ページIDは mockup フォルダからの相対パスで生成する。index.html はディレクトリ名に畳む
+  （例: about/index.html → about、center/biotope.html → center_biotope）。ルート直下の index.html は index
+- フィールドは**本文と装飾の2つに分かれる**。装飾は `data-deco` または `aria-hidden="true"`
+  （vocabulary.md 2.4）。本文の区切りは `data-section` が持つ
 - デフォルト値: mockup内の値をACFデフォルト値として登録する
-- 繰り返し要素は固定数前提。連番フィールドで表現する（可変数のセクションは対象外、または案件CLAUDE.mdの除外で手動指定）
+- 繰り返しは `data-loop` で CPT のループにする（vocabulary.md 3章）。
+  件数の上限は無い。同じ中身の子を複数持つ形（カルーセル等）は `data-loop-repeat` で表す
 
 ## ナビ・フォーム・メタ
 - nav要素はWPカスタムメニューへ変換する
@@ -25,15 +45,10 @@
 - OGP / Twitter Card / 基本meta（title, description）を出力する。SEOプラグインに依存しない
 
 ## 共通領域の扱い
-- Phase 0 の scan は、全ページの半数以上で完全一致するセクション（footer・header・cta等）を検出し、`common` キーとして acf-map.yaml に1回だけ出力する。各ページからは該当セクションを除外する。
+- 共通領域は**モックの `data-common` 宣言で決まる**（vocabulary.md 4章）。多数決や一致率での検出はしない。scan は宣言された id を集め、`common` キーとして acf-map.yaml に1回だけ出力する。各ページからは該当セクションを除外する。
 - Phase 1 で WPテーマ化する際、`common` のフィールドを共通テンプレ（header.php / footer.php）に配置し、共通の nav はカスタムメニューに名寄せする。
-- 共通化の判定は「セクションID＋各フィールドの名前と値」の署名による完全一致。閾値はページ数の半数（切り上げ、最低2）。
+- 同じ `data-common` の中身は全ページで一致していること（vocabulary.md L09 が検査する）。例外は現在ページを示す class だけ（`data-nav-current`）。
 
-## セクション分類の既知の弱点（人手レビュー対象）
-- セクション名は「id を持つ祖先 → セクションタグの祖先 → section風クラスの祖先」の順で決まる。意図しないラッパーを拾うことがあるため、`/setup` 手順4で命名を確認する。
-- hero/main 判定はクラス・id の部分一致（hero/main/top/kv/mv）で行う。`topic` `main-visual` 以外の語に誤マッチする余地があるため、main タブの分類は目視確認する。
-- id も意味のある class も無いセクション（<section style="..."> 等）は、タグ名＋ページ内DOM出現順の連番で区別する（例: section_3、section_8）。後処理（Claude Code）が中身の見出しを見て意味名にリネームする
-- class 名がタグ名と同じ（例: <section class="section white">）場合、section は意味名とみなさず次の class（white）を採用するか連番にフォールバックする
 
 ## アクセシビリティ
 - WCAG 2.0 AA。自動検出できる範囲を対象とする
@@ -56,25 +71,31 @@
 - inc/seed-posts.php（初期投入。必要時のみ）
 - assets/（mockup由来の css / js / images / svg）
 
-## 型マッピング（Phase 1 で適用）
-acf-map.yaml の type（text/textarea/image の3型）を、意味に応じて次に変換する:
-- 見出し（h1〜h3）→ text
-- 短い1〜2文（p）→ textarea
-- リッチな本文（h2配下のまとまった段落・リスト等）→ wysiwyg
-- 単体URL（リンク先・公式サイト等）→ url
-- 画像（img）→ image（return_format は array に統一）
-- ラベルを持つ定型項目（住所・料金・営業時間等）→ text
-- 判断はお手本に倣う
+## 型
+
+**型はモック側で決まる。詳細は `rules/vocabulary.md` 2.1節。**
+タグから導出できるものは省略でき、できないタグは `data-acf-type` が必須。
+Phase 1 で型を判断し直す工程は無い（acf-map.yaml の型がそのまま使われ、
+食い違えば変換器が停止する）。
+
+- 有効な型は `text` / `textarea` / `wysiwyg` / `url` / `image` の5つ
+- `image` の return_format は array に統一する
+- `wysiwyg` は `<p>` に宣言できない（vocabulary.md 2.7 / L31）
 
 ## トップページ
-- index / home / top / front のいずれかの slug を front-page に割り当てる
-- 該当なし・複数 → CLAUDE.md の「## トップページ」で指定。指定なければ止めて確認する（自動推測しない）
+- `data-page="front"` を宣言したページが front-page.php になる（vocabulary.md 1章）。
+  slug からの推測はしない
+- 宣言が無い・複数ある → 変換器が停止する
 
 ## ナビゲーション（リンク解決）
-- nav を register_nav_menus() + wp_nav_menu() で出力する
-- links[].href が mockup内ファイル（about.html 等）なら、生成ページのパーマリンクへ対応付ける
+- `data-nav` を register_nav_menus() + wp_nav_menu() で出力する（vocabulary.md 5章）。
+  **モックに書かれた DOM の形をそのまま再現する**（形ごとに Walker を生成する）
+- モック内ファイルへの相対パスは、生成ページのパーマリンクへ対応付ける。
+  **`data-nav` の中も外も同じ**（nav の中のリンク切れは lint L30 が検査する）
 - 外部URL・アンカー・mailto: はそのまま
-- 重複する nav は1つの共通メニューに名寄せする
+- 同じ `data-nav` の値は同じメニュー。値が違えば別メニュー
+- メニュー項目は**参照型**（page_id / post_type_archive 等）で登録する。custom リンクにしない。
+  お客様が管理画面から編集できなくなり、現在ページの判定も効かなくなるため
 
 ## フォーム（CF7置換）
 - forms を Contact Form 7 のショートコードに置換する

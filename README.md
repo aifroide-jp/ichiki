@@ -81,6 +81,16 @@ node .claude/ichiki/bin/ichiki.js doctor
 `prompts/mockup-generation.md` が AI にモックを作らせるときの指示書。
 **3者はルールIDで対応**していて、`ichiki selftest` がズレを検出する。
 
+`rules/` の2ファイルは書くことを分けている。**同じことを2箇所に書かない。**
+
+| | 中身 | 重複したら |
+|---|---|---|
+| `ichiki.md` | 前提・環境・成果物・運用の約束 | 要点だけ書いて vocabulary.md の節番号を指す |
+| `vocabulary.md` | モックの書き方（宣言と L01〜L31） | ここが正 |
+
+実測で、命名規則・タブ分類・繰り返し・共通領域の判定の4箇所が、
+実装が変わったあとも `ichiki.md` に旧方式のまま残っていた。**両方に詳細を書くと必ずズレる。**
+
 ## 使う
 
 ```bash
@@ -127,7 +137,9 @@ src/
   shared/         lint と変換器が共有する定数・分類・パス正規化
   gate.js         上を順に流す
   snapshot.js     出力を凍結し、変わったら落とす
-rules/            ichiki.md（固定ルール）/ vocabulary.md（制約語彙）
+rules/
+  ichiki.md       前提・環境・成果物の規定・運用の約束（案件をどう進めるか）
+  vocabulary.md   モックの書き方 L01〜L31 と宣言の一覧（モックをどう書くか）
 prompts/          モックアップ生成プロンプト
 templates/        案件用 CLAUDE.md のテンプレート
 commands/         Claude Code のスラッシュコマンド（/setup /run）
