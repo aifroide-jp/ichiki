@@ -139,6 +139,18 @@ function renderFragment(page, model, el, includeSelf, errors, scopeSlug) {
       addAbs(cloc.startTag.endOffset, cloc.endTag.startOffset, '<?php the_title(); ?>');
     }
 
+    // <template data-acf="…">: **フィールドは作るが出力しない。**
+    //
+    // 画面に出ないがお客様が編集する値（地図の緯度経度、並び順、外部システムのID等）を
+    // 宣言するための書き方。<template> は HTML 標準で描画されないので、
+    // **モックとして開いても何も出ない**。新しい属性を足すより素直だと判断した。
+    // 型は導出できないので data-acf-type が必須になる（L05 がそのまま効く）。
+    if ((node.name || '').toLowerCase() === 'template' && 'data-acf' in attrs) {
+      analyzeField(page, page.$, node, { linkRegistry: model.linkRegistry, scopeSlug: currentScope }, errors);
+      addAbs(nloc.startOffset, nloc.endOffset, '');
+      return;
+    }
+
     stripAllDataAttrs(node);
 
     // data-nav: 中身を丸ごと wp_nav_menu() 呼び出しに置換する(実際のURL/文言はwp-adminの

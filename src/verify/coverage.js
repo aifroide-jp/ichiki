@@ -14,13 +14,18 @@ const { findHtmlFiles } = require('../converter/lib/discover');
 function declaredFieldsPerPage(mockupDir) {
   const files = findHtmlFiles(mockupDir);
   const perPage = new Map(); // relPath -> Set(name)
+  // <template data-acf="…"> は**フィールドを作るが出力しない**宣言（vocabulary.md 2.8）。
+  // 画面に出ないので the_field() も現れない。ここで除かないと必ず「未出力」になる。
+  const templateFieldRe = /<template[^>]*\sdata-acf="([^"]+)"/g;
   const dataAcfRe = /data-acf="([^"]+)"/g;
   const dataAcfUrlRe = /data-acf-url="([^"]+)"/g;
   for (const f of files) {
     const html = fs.readFileSync(f.abs, 'utf8');
     const names = new Set();
     let m;
-    while ((m = dataAcfRe.exec(html))) names.add(m[1]);
+    const outputless = new Set();
+    while ((m = templateFieldRe.exec(html))) outputless.add(m[1]);
+    while ((m = dataAcfRe.exec(html))) if (!outputless.has(m[1])) names.add(m[1]);
     while ((m = dataAcfUrlRe.exec(html))) names.add(m[1]);
     perPage.set(f.rel, names);
   }

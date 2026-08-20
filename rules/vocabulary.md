@@ -232,6 +232,25 @@ ACF の wysiwyg は値を `<p>` で包んで出力する。`<p>` の中に置く
 > `event_meta` の5件がこの形だった。文字は画面に出るため目視では気づけず、
 > 「class の付いた要素が空」という形でしか現れない。
 
+## 2.8 画面に出ないフィールド（`<template>`）
+
+お客様が編集するが**画面には出ない**値がある（地図の緯度経度、並び順、外部システムのID等）。
+`<template>` に `data-acf` を書く。
+
+```html
+<template data-acf="map_lat" data-acf-type="text">33.9056</template>
+<template data-acf="map_lng" data-acf-type="text">130.7253</template>
+```
+
+- `<template>` は **HTML 標準で描画されない**。モックとして開いても何も出ない
+- ACF にはフィールドとして登録され、中身がデフォルト値になる
+- 変換後のテンプレートには**何も出力されない**（要素ごと消える）
+- 型は導出できないので `data-acf-type` が必須（L05）
+
+新しい属性は作っていない。`<template>` が「描画しない中身」を表す標準の要素なので、
+そのまま使うほうが素直だと判断した。
+
+> この値を実際に使うのは JS 側になる（3.2節: `data-loop-data`）。
 ---
 
 ## 3. 繰り返し（一覧ループ）
@@ -268,6 +287,41 @@ ACF の wysiwyg は値を `<p>` で包んで出力する。`<p>` の中に置く
 - 変換器はそのフィールドを CPT のフィールド集合に合流させる（足さないと ACF 定義に載らず、
   一覧テンプレートが常に空を出力する）
 - lint は **warn** で一覧に出す。名前の書き間違いも同じ形で現れるため、必ず目に入るようにする
+
+### 3.2 ループのデータを JS へ渡す（`data-loop-data`）
+
+モックの JS が CPT のデータを必要とすることがある（地図のマーカー等）。
+モックでは JS にべた書きするしかないが、**変換後もそのままだと投稿を増やしても変わらない。**
+
+```html
+<div id="center-map" data-loop-data="center" data-loop-fields="map_lat,map_lng"></div>
+```
+
+| 属性 | 内容 |
+|---|---|
+| `data-loop-data` | CPT スラッグ。その CPT の全投稿を JS へ渡す |
+| `data-loop-fields` | 渡すフィールド名（カンマ区切り）。**明示する** |
+
+変換器が `wp_localize_script()` で `NKK_LOOP_<cpt>` として渡す。
+`title` と `url`（パーマリンク）は常に入る。それ以外は `data-loop-fields` に書いたものだけ。
+
+```js
+// JS 側。モックとして開いたときは変数が無いので、べた書きの配列を使う
+var rows = spots;
+if (typeof NKK_LOOP_center !== 'undefined' && NKK_LOOP_center.length) {
+  rows = NKK_LOOP_center.map(function (r) {
+    return { name: r.title, lat: parseFloat(r.map_lat), lng: parseFloat(r.map_lng), url: r.url };
+  });
+}
+```
+
+- **渡すフィールドを明示させる**のは、全部渡すと不要なものまで画面のソースに出るうえ、
+  どれが使われているのか読めなくなるため
+- 画面に出ない値（緯度経度等）は `<template>` で宣言する（2.8節）
+
+> 実測: 拠点マップが JS べた書きのままで、一覧カードは CPT 由来で増えるのに
+> **地図のマーカーは10件で固定**、しかもリンクが全部 404 だった。
+> この宣言を入れて、投稿を足すと地図にも出ることを確認した。
 
 ### 3.1 `data-loop-repeat`（無限マーキー用）
 

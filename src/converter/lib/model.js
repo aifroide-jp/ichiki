@@ -471,6 +471,29 @@ function buildModel(pages, errors) {
     }
   }
 
+  // data-loop-data: ループの投稿データを JS へ渡す宣言（vocabulary.md 3.2）。
+  //
+  // モックの JS が CPT のデータを必要とする場合がある（拠点マップのマーカー等）。
+  // モックでは JS にべた書きするしかないが、変換後もそのままだと
+  // **投稿を増やしても JS が変わらない**（実測: 一覧カードは CPT 由来で増えるのに
+  // 地図のマーカーは10件で固定。しかもリンクが全部 404 だった）。
+  //
+  // 渡すフィールドは data-loop-fields で**明示させる**。全部渡すと不要なものまで
+  // 画面のソースに出るし、どれが使われているのか読めなくなる。
+  model.loopData = [];
+  for (const page of pages) {
+    if (!page.dataPage) continue;
+    page.$('[data-loop-data]').each((_, el) => {
+      const $el = page.$(el);
+      const cpt = $el.attr('data-loop-data');
+      const fields = ($el.attr('data-loop-fields') || '')
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean);
+      model.loopData.push({ cpt, fields, page });
+    });
+  }
+
   // ページ内に直接書かれた <script>（処理を持つもの）。
   //
   // 以前は L25 で禁止していたが、理由が「テーマのどこに置けばいいか決まらない」で、

@@ -33,6 +33,8 @@ const DECLARATION_ATTRS = new Set([
   'data-loop-order',
   'data-loop-count',
   'data-loop-repeat',
+  'data-loop-data',
+  'data-loop-fields',
   'data-common',
   'data-nav',
   'data-nav-item',

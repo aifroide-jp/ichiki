@@ -200,6 +200,26 @@ function generateFunctionsPhp(model, errors) {
     lines.push('    }');
   }
   lines.push("    wp_localize_script( 'nkk-main', 'NKK_PERMALINKS', $nkk_permalinks );");
+
+  // data-loop-data: ループの投稿データを JS へ渡す（vocabulary.md 3.2）。
+  // タイトルとパーマリンクは常に入れる。それ以外は data-loop-fields で明示されたものだけ。
+  for (const ld of model.loopData || []) {
+    lines.push('');
+    lines.push(`    $nkk_loop = array();   // data-loop-data="${ld.cpt}"（${ld.page.relPath}）`);
+    lines.push(
+      `    foreach ( get_posts( array( 'post_type' => '${CPT_PREFIX}${ld.cpt}', 'posts_per_page' => -1 ) ) as $p ) {`
+    );
+    lines.push('        $row = array(');
+    lines.push("            'title' => get_the_title( $p ),");
+    lines.push("            'url'   => get_permalink( $p ),");
+    lines.push('        );');
+    for (const f of ld.fields) {
+      lines.push(`        $row['${f}'] = get_field( 'field_${ld.cpt}_${f}', $p->ID );`);
+    }
+    lines.push('        $nkk_loop[] = $row;');
+    lines.push('    }');
+    lines.push(`    wp_localize_script( 'nkk-main', 'NKK_LOOP_${ld.cpt}', $nkk_loop );`);
+  }
   // ページ固有 JS は css/page/*.css と同じ規約（js/page/<id>.js があれば読む）。
   if (model.pageJs) {
     if (model.pageJs.has('front')) {

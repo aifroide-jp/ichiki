@@ -77,7 +77,13 @@ function wysiwygDefault(page, el, innerStart, innerEnd, opts, errors) {
 }
 
 function directChildren(el) {
-  return el.children || [];
+  // <template> の中身は parse5/cheerio が root ノードで1段包む（DocumentFragment 相当）。
+  // そのまま children を見ると text が見つからず「直下にテキストが無い」になる。
+  const kids = el.children || [];
+  if ((el.name || '').toLowerCase() === 'template' && kids.length === 1 && kids[0].type === 'root') {
+    return kids[0].children || [];
+  }
+  return kids;
 }
 
 function significantTextNodes(el) {
