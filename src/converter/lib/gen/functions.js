@@ -160,13 +160,34 @@ function generateFunctionsPhp(model, errors) {
   //  残す処理と対で意味を持つ）。
   lines.push('');
   lines.push("    wp_enqueue_script( 'nkk-main', $dir . '/assets/js/main.js', array(), null, true );");
+
+  // 外部の CSS（Leaflet 等）。ページごとに要否が違うので enqueue で出す。
+  for (const [i, ext] of (model.externalCss || []).entries()) {
+    lines.push(
+      `    wp_enqueue_style( 'nkk-extcss-${i + 1}', ${phpSingleQuote(ext.href)}, array(), null );` +
+        `   // ${ext.pages.map((p) => p.relPath).join(', ')}`
+    );
+  }
+
+  // 外部ライブラリ（Leaflet 等）。モックが <script src="https://…"> で読んでいるもの。
+  // ページ固有 JS がこれに依存するので、依存関係に入れて読み込み順を保証する。
+  const extDeps = [];
+  for (const [i, ext] of (model.externalScripts || []).entries()) {
+    const handle = `nkk-ext-${i + 1}`;
+    extDeps.push(handle);
+    lines.push(
+      `    wp_enqueue_script( '${handle}', ${phpSingleQuote(ext.src)}, array(), null, true );` +
+        `   // ${ext.pages.map((p) => p.relPath).join(', ')}`
+    );
+  }
+  const jsDeps = ['nkk-main', ...extDeps].map((h) => `'${h}'`).join(', ');
   // ページ固有 JS は css/page/*.css と同じ規約（js/page/<id>.js があれば読む）。
   if (model.pageJs) {
     if (model.pageJs.has('front')) {
       lines.push('');
       lines.push('    if ( is_front_page() ) {');
       lines.push(
-        `        wp_enqueue_script( 'nkk-js-front', $dir . '/assets/js/page/front.js', array( 'nkk-main' ), null, true );`
+        `        wp_enqueue_script( 'nkk-js-front', $dir . '/assets/js/page/front.js', array( ${jsDeps} ), null, true );`
       );
       lines.push('    }');
     }
@@ -174,7 +195,7 @@ function generateFunctionsPhp(model, errors) {
       if (!model.pageJs.has(pageId)) continue;
       lines.push(`    if ( is_page_template( 'page-${pageId}.php' ) ) {`);
       lines.push(
-        `        wp_enqueue_script( 'nkk-js-${pageId}', $dir . '/assets/js/page/${pageId}.js', array( 'nkk-main' ), null, true );`
+        `        wp_enqueue_script( 'nkk-js-${pageId}', $dir . '/assets/js/page/${pageId}.js', array( ${jsDeps} ), null, true );`
       );
       lines.push('    }');
     }
@@ -183,7 +204,7 @@ function generateFunctionsPhp(model, errors) {
       const postType = `${CPT_PREFIX}${cpt}`;
       lines.push(`    if ( is_singular( '${postType}' ) || is_post_type_archive( '${postType}' ) ) {`);
       lines.push(
-        `        wp_enqueue_script( 'nkk-js-${cpt}', $dir . '/assets/js/page/${cpt}.js', array( 'nkk-main' ), null, true );`
+        `        wp_enqueue_script( 'nkk-js-${cpt}', $dir . '/assets/js/page/${cpt}.js', array( ${jsDeps} ), null, true );`
       );
       lines.push('    }');
     }

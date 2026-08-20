@@ -452,7 +452,10 @@ function buildModel(pages, errors) {
         const rel = ($el.attr('rel') || '').toLowerCase();
         const href = $el.attr('href') || '';
         // ページ別 CSS は enqueue が担当するので除く。外部 CSS と favicon 系だけ持つ。
-        if (rel === 'stylesheet' && !/^(https?:)?\/\//i.test(href)) return;
+        // CSS は enqueue が担当する（外部・内部とも）。<head> に直接書かない。
+        // 実測: Leaflet の CSS が center/index.html にしか無く、基準ページから拾う方式では
+        // 丸ごと落ちていた。ページごとに要否が違うものは enqueue でしか正しく出せない。
+        if (rel === 'stylesheet') return;
         let html = ref.$.html($el).trim();
         // モック内のファイル（favicon 等）への相対パスは、そのままだと WordPress で 404。
         // assets/ に置かれるのでテーマ URI に直す。
@@ -465,6 +468,48 @@ function buildModel(pages, errors) {
         }
         model.headLinks.push(html);
       });
+    }
+  }
+
+  // 外部の <script src>（Leaflet 等）。ページ内 <script> は L25 で禁止しているが、
+  // **外部ライブラリの読み込みは処理ではない**ので落としてはいけない。
+  // 実測: 活動拠点の地図（Leaflet）が、読み込みごと消えて白紙になっていた。
+  // ページ固有 JS は enqueue されるのに、その JS が依存するライブラリが無い状態だった。
+  {
+    model.externalCss = [];
+    {
+      const seenCss = new Set();
+      for (const pg of pages) {
+        if (!pg.dataPage) continue;
+        pg.$('head link[rel="stylesheet"]').each((_, el) => {
+          const href = pg.$(el).attr('href') || '';
+          if (!/^(https?:)?\/\//i.test(href)) return;
+          if (seenCss.has(href)) return;
+          seenCss.add(href);
+          model.externalCss.push({ href, pages: [] });
+        });
+      }
+      for (const pg of pages) {
+        if (!pg.dataPage) continue;
+        for (const e of model.externalCss) {
+          if (pg.$(`head link[href="${e.href}"]`).length) e.pages.push(pg);
+        }
+      }
+    }
+    model.externalScripts = [];
+    const seen = new Set();
+    for (const p of pages) {
+      if (!p.dataPage) continue;
+      p.$('script[src]').each((_, el) => {
+        const src = p.$(el).attr('src') || '';
+        if (!/^(https?:)?\/\//i.test(src)) return; // モック内の js は enqueue が担当
+        if (seen.has(src)) return;
+        seen.add(src);
+        model.externalScripts.push({ src, pages: [] });
+      });
+      for (const e of model.externalScripts) {
+        if (p.$(`script[src="${e.src}"]`).length) e.pages.push(p);
+      }
     }
   }
 
