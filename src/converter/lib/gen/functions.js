@@ -199,8 +199,20 @@ function generateFunctionsPhp(model, errors) {
   lines.push(' * 該当スラッグのページが存在しない環境では空文字列を返す(実行時のnullガードであり、');
   lines.push(' * vocabulary.mdが禁じる「変換時のエスケープハッチ」とは異なる)。');
   lines.push(' */');
-  lines.push('function nkk_get_page_permalink( $page_id_slug ) {');
-  lines.push('    $page = get_page_by_path( $page_id_slug );');
+  // data-page-id → 固定ページのスラッグ。**変換規則の唯一の実装。**
+  // 以前は functions.php と seed-menus.php に同じ str_replace が別々に書かれており、
+  // 実測で片方（nkk_get_page_permalink）だけ変換を忘れていた。
+  // その結果 wysiwyg 内のリンクが href="" になり、現在ページへ戻るリンクになっていた。
+  lines.push('function nkk_page_slug( $page_id ) {');
+  lines.push("    return str_replace( '_', '-', (string) $page_id );");
+  lines.push('}');
+  lines.push('');
+  lines.push('function nkk_get_page_permalink( $page_id ) {');
+  // data-page-id はアンダースコア区切り（about_biodiversity）だが、
+  // 固定ページのスラッグはハイフン（about-biodiversity）。**変換を忘れると空文字が返る。**
+  // 実測: wysiwyg 内のリンクが href="" になり、現在ページへ戻るリンクになっていた。
+  // seed-posts / seed-menus 側は変換していたのに、ここだけ素通しだった。
+  lines.push('    $page = get_page_by_path( nkk_page_slug( $page_id ) );');
   lines.push("    return $page ? get_permalink( $page ) : '';");
   lines.push('}');
   lines.push('');

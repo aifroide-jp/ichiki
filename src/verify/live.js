@@ -140,6 +140,20 @@ async function expandUrls(pages) {
   const archiveSlug = {};
   for (const p of pages) if (p.kind === 'archive') archiveSlug[p.cpt] = archiveSlugOf(p.rel);
 
+  // 固定ページの URL は**実サイトのパーマリンクを見る**。モックのパスから組み立てない。
+  //
+  // 実測: about/biodiversity.html は page_id が about_biodiversity になり、
+  // スラッグは about-biodiversity（階層が畳まれる）。モックのパスから
+  // /about/biodiversity/ を期待すると 404 になるが、**サイト内のリンクは
+  // パーマリンク経由なので壊れていない**。検査だけが誤検出していた。
+  const pageSlugs = new Set();
+  {
+    const j = await getJson(`${SITE}/wp-json/wp/v2/pages?per_page=100`);
+    if (Array.isArray(j)) for (const x of j) pageSlugs.add(x.slug);
+  }
+  // data-page-id → WordPress のスラッグ（seed-posts.php と同じ規則）
+  const slugOfPageId = (id) => String(id || '').replace(/_/g, '-');
+
   const postsOf = {};
   for (const cpt of new Set(pages.filter((p) => p.cpt).map((p) => p.cpt))) {
     const j = await getJson(`${SITE}/wp-json/wp/v2/nkk_${cpt}?per_page=100`);
@@ -149,7 +163,14 @@ async function expandUrls(pages) {
   const targets = [];
   for (const p of pages) {
     if (p.kind === 'front') targets.push({ url: '/', page: p });
-    else if (p.kind === 'page') targets.push({ url: `/${archiveSlugOf(p.rel)}/`, page: p });
+    else if (p.kind === 'page') {
+      const slug = slugOfPageId(p.pageId);
+      if (slug && !pageSlugs.has(slug)) {
+        bad(`/${slug}/`, 'page-missing', `data-page-id="${p.pageId}" の固定ページが実サイトにありません`);
+        continue;
+      }
+      targets.push({ url: `/${slug}/`, page: p });
+    }
     else if (p.kind === 'archive') targets.push({ url: `/${archiveSlug[p.cpt]}/`, page: p });
     else if (p.kind === 'single') {
       const base = archiveSlug[p.cpt];

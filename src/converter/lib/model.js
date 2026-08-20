@@ -193,6 +193,7 @@ function buildModel(pages, errors) {
   errors.throwIfAny();
 
   // --- 2. リンク解決レジストリ（サイトパス→ページ種別）を先に作る ---
+  model.allPages = pages;
   model.linkRegistry = buildLinkRegistry(pages.filter((p) => p.dataPage));
 
   // --- 3. data-common / data-nav をページ横断で集約し、内容が同一であることを検証する ---
@@ -202,6 +203,11 @@ function buildModel(pages, errors) {
       const name = $(el).attr('data-common');
       const html = normalizeOuterForCompare(outerHtml(page, el), page.relPath);
       const entry = model.commonMap.get(name);
+      // 各ページの data-common="header" を覚えておく。
+      // header.php の素材は基準ページ1枚だが、「<header> と <main> の間に
+      // 宣言の無い要素が無いか」は全ページで見る必要がある（templates.js 参照）。
+      if (name === 'header') page.commonHeaderEl = el;
+
       if (!entry) {
         model.commonMap.set(name, { el, page, html, tag: (el.name || '').toLowerCase() });
       } else if (entry.html !== html) {

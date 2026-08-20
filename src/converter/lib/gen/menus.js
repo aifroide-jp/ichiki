@@ -216,7 +216,8 @@ function generateSeedMenusPhp(model) {
   L.push('}');
   L.push('');
   L.push('function nkk_seed_page_by_id( $page_id ) {');
-  L.push("    $page = get_page_by_path( str_replace( '_', '-', $page_id ) );");
+  // 変換規則は functions.php の nkk_page_slug が唯一の実装。ここでは呼ぶだけ。
+  L.push('    $page = get_page_by_path( nkk_page_slug( $page_id ) );');
   L.push('    return $page ? $page : null;');
   L.push('}');
   L.push('');

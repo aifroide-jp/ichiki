@@ -32,7 +32,15 @@ function generateHeaderPhp(model, errors) {
   // 実測: モバイルナビ（<nav data-nav="mobile">）が <header> の外・<main> の前に
   // 置かれており、data-common と <main> しか拾っていなかったため**丸ごと消えていた**。
   // 生成物にも実サイトにも存在せず、検査も「要素が無い」で素通りしていた。
-  const between = renderBetween(headerEntry.page, model, headerEntry.el, errors);
+  // 検査は**全ページ**に対して行う。header.php を組む素材は基準ページ1枚だが、
+  // 宣言の無い要素は「どのページに書かれているか」に関係なく事故のもとなので、
+  // 基準ページだけ見ていると他ページの分をすり抜ける（実測でそうなっていた）。
+  for (const p of model.allPages || []) {
+    if (p === headerEntry.page) continue;
+    if (!p.commonHeaderEl) continue;
+    renderBetween(p, model, p.commonHeaderEl, errors, true);
+  }
+  const between = renderBetween(headerEntry.page, model, headerEntry.el, errors, true);
   if (between.trim()) {
     lines.push(between);
     lines.push('');
@@ -45,7 +53,22 @@ function generateHeaderPhp(model, errors) {
 // data-common="header" の直後から <main id="main-content"> の直前までを描画する。
 // ここに置かれた要素（モバイルナビ等）は共通領域でも本文でもないが、
 // 全ページに出る必要があるので header.php に含める。
-function renderBetween(page, model, headerEl, errors) {
+//
+// **拾うのは data-common が付いたものだけ。** 宣言の無い要素があればエラーで止める。
+//
+// 以前は「間にあるものを全部」拾っていた。header.php は基準ページ1枚から作られるので、
+// **そのページ固有の中身が全ページへ配られる**。
+// 実測: about/biodiversity.html だけ breadcrumb と page-header が <main> の外にあり、
+// 「生物多様性とは？」というパンくずの現在地と曽根干潟の背景写真が、
+// 全ページ共通の header.php に焼き込まれていた。検査8本を全部通り抜けた。
+//
+// 「全ページに共通して在るものを拾う」という直し方は採らない。それは推測であり、
+// scan から削除したのと同じ手口になる。しかも**全ページに在るが別部品**のもの
+// （フロートのお問い合わせボタン等）を必ず取り違える。宣言だけを見る。
+// requireDeclaration: header.php（全ページ共通）を組むときだけ true。
+// 自前シェル（vocabulary.md 4.1）は1ページで完結するので、宣言を要求しない。
+// そのページの中身がそのページにだけ出るのは正しい。
+function renderBetween(page, model, headerEl, errors, requireDeclaration) {
   const $ = page.$;
   const main = $('#main-content').get(0);
   if (!main || !headerEl.sourceCodeLocation || !main.sourceCodeLocation) return '';
@@ -54,12 +77,28 @@ function renderBetween(page, model, headerEl, errors) {
     : headerEl.sourceCodeLocation.endOffset;
   const end = main.sourceCodeLocation.startOffset;
   if (end <= start) return '';
-  // 間にある要素を1つずつ描画する（data-* の除去・nav の置換を通すため）
+
   const out = [];
   for (const node of $('body').get(0).children || []) {
     if (node.type !== 'tag' || !node.sourceCodeLocation) continue;
     if (node.sourceCodeLocation.startOffset < start) continue;
     if (node.sourceCodeLocation.endOffset > end) continue;
+
+    if (requireDeclaration && !(node.attribs || {})['data-common']) {
+      const cls = (node.attribs || {}).class;
+      errors.add(
+        page.relPath,
+        node.sourceCodeLocation.startLine,
+        `<${node.name}${cls ? ` class="${cls}"` : ''}> が <header> と <main> の間にありますが ` +
+          'data-common がありません。全ページ共通なら data-common を宣言し、' +
+          'このページだけのものなら <main> の中へ移してください' +
+          '（ここは header.php に入るため、宣言の無いものを拾うとページ固有の中身が全ページに出ます）'
+      );
+      continue;
+    }
+    // header.php が直接展開するので、テンプレートパーツは作らない（generateCommonTemplateParts）
+    if (!model.shellCommonNames) model.shellCommonNames = new Set();
+    model.shellCommonNames.add((node.attribs || {})['data-common']);
     out.push(renderFragment(page, model, node, true, errors, 'site_options'));
   }
   return out.join('\n');
@@ -87,8 +126,12 @@ function generateFooterPhp(model, errors) {
 // data-common="header"/"footer" 以外(例: "cta")は template-parts/common-<name>.php に切り出す。
 function generateCommonTemplateParts(model, errors) {
   const parts = [];
+  // header.php / footer.php が直接展開するものは、テンプレートパーツにしない。
+  // header と footer 自身に加え、**<header> と <main> の間に置かれたもの**（モバイルナビ等）も
+  // header.php が展開済み。パーツを作っても誰からも呼ばれず、置き場所だけが2つになる。
+  const inlinedInShell = new Set(['header', 'footer', ...(model.shellCommonNames || [])]);
   for (const [name, entry] of model.commonMap) {
-    if (name === 'header' || name === 'footer') continue;
+    if (inlinedInShell.has(name)) continue;
     const html = renderFragment(entry.page, model, entry.el, true, errors, 'site_options');
     const content = ['<?php', `/** template-parts/common-${name}.php (data-common="${name}" から生成) */`, '?>', html, ''].join(
       '\n'
@@ -159,7 +202,7 @@ function wrapOwnShellPage(model, page, pageId, innerHtml, errors) {
   // header.php と同じく、<header> と <main> の間の要素も出す。
   // 実測: 申込ページのパンくず（<nav class="breadcrumb">）がここに置かれており、
   // header.php 側にしか renderBetween が無かったため丸ごと消えていた。
-  const between = renderBetween(page, model, page.ownHeaderEl, errors);
+  const between = renderBetween(page, model, page.ownHeaderEl, errors, false);
   if (between.trim()) {
     lines.push(between);
     lines.push('');
