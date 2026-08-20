@@ -169,6 +169,7 @@ function main() {
   console.log('');
 
   const failures = [];
+  const warned = [];
   let stoppedAt = null;
 
   for (const s of steps) {
@@ -189,11 +190,31 @@ function main() {
       console.log(`✗ ${s.name}  （変換はこれに依存しないので続行）`);
       continue;
     }
-    const tail = r.skipped ? `（${r.skipped}）` : r.note ? `（${r.note}）` : '';
+    // 通ったステップでも**警告は握りつぶさない**。
+    // 実測: acf-map.yaml との値の食い違い39件が warn で、gate には ✓ としか出ず、
+    // 「問題が出るようにした」つもりで誰にも見えていなかった。
+    const warnLines = (r.output || '')
+      .split('\n')
+      .filter((l) => /^\s*(警告|WARN|.*と違います)/.test(l)).length;
+    const warnCount = ((r.output || '').match(/違います|警告 \d+ 件/g) || []).length;
+    const tail =
+      (r.skipped ? `（${r.skipped}）` : r.note ? `（${r.note}）` : '') +
+      (warnCount ? `  ※ 警告 ${warnCount} 件` : '');
+    void warnLines;
     console.log(`✓ ${s.name}${tail}`);
+    if (warnCount) warned.push({ name: s.name, output: r.output });
   }
 
   console.log('');
+
+  if (warned.length) {
+    console.log('');
+    for (const w of warned) {
+      console.log(`===== ${w.name} の警告 =====`);
+      console.log(w.output.trimEnd());
+      console.log('');
+    }
+  }
 
   if (failures.length === 0) {
     console.log(`全ゲート通過。生成テーマ: ${themeDir}`);

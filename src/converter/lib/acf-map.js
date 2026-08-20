@@ -51,6 +51,8 @@ function loadAcfMap(mapPath) {
       cpt: page.cpt || null,
       pageId: page.page_id || null,
       variant: page.variant || null,
+      title: page.title || '',
+      sections: (page.sections || []).map((x) => x.id),
       css: page.css || [],
       fields,
     });
@@ -78,16 +80,57 @@ function checkAgainstModel(map, pages, errors) {
     if ((m.variant || null) !== (page.variant || null)) {
       errors.add(page.relPath, 1, `data-page-variant が acf-map.yaml と違います（yaml: ${m.variant} / モック: ${page.variant}）`);
     }
+    // <title> は投稿タイトルと CPT ラベルになる。
+    // 実測: 変換器の loadPage が <title> を読んでおらず、投稿タイトルが data-page-id
+    // そのものになっていた（"contact – サイト名"）。scan は正しく読んでいたので、
+    // ここを比べていれば即座に出ていた。
+    if ((m.title || '') !== (page.title || '')) {
+      errors.add(page.relPath, 1, `<title> が acf-map.yaml と違います（yaml: ${JSON.stringify(m.title)} / モック: ${JSON.stringify(page.title)}）`);
+    }
+    // セクションの並び。ACF のタブ区切りになるので、順序も一致していること。
+    const modelSections = [
+      ...new Set(page.$('[data-section]').map((_, el) => page.$(el).attr('data-section')).get()),
+    ];
+    if ((m.sections || []).join(',') !== modelSections.join(',')) {
+      errors.add(
+        page.relPath,
+        1,
+        `data-section の並びが acf-map.yaml と違います（yaml: ${(m.sections || []).join(',')} / モック: ${modelSections.join(',')}）`
+      );
+    }
   }
 }
 
 // scan の読み（yaml）と convert の読み（model）が一致するかを見る。上書きはしない。
+//
+// 型だけでなく**デフォルト値も比べる**。型しか見ていなかったとき、
+// 実測で24件の食い違いが放置されていた（整形タグの脱落15件、入れ子フィールドの
+// 文字を親が飲み込む3件、data-loop-sample の値で上書き2件、改行をまたぐ属性が読めない4件）。
+// どれも acf-map.yaml に間違った値が入り、検収成果物（C1/C3）まで波及する。
 function checkFieldTypes(map, fields, relPath, errors) {
   for (const f of fields) {
     const spec = map.byPage.get(relPath)?.fields.get(f.name) || map.common.get(f.name);
     if (!spec) continue; // ループ項目の合流などで yaml 側に無いことがある
     if (spec.type && spec.type !== f.type) {
       errors.add(relPath, null, `${f.name}: 型が acf-map.yaml と違います（yaml: ${spec.type} / モック: ${f.type}）`);
+      continue; // 型が違えば値も違って当然なので、二重に出さない
+    }
+
+    // image は ACF が添付IDを持つので変換器側は defaultValue を持たない（設計どおり）。
+    // wysiwyg 内のリンク解決は PHP 式になるので文字列比較できない。
+    if (f.type === 'image') continue;
+    if (f.defaultValue && typeof f.defaultValue === 'object') continue;
+
+    const y = spec.default === undefined || spec.default === null ? '' : String(spec.default);
+    const c = f.defaultValue === undefined || f.defaultValue === null ? '' : String(f.defaultValue);
+    if (y !== c) {
+      const cut = (x) => (x.length > 70 ? x.slice(0, 70) + '…' : x);
+      const msg = `${f.name}: 値が acf-map.yaml と違います\n      yaml: ${JSON.stringify(cut(y))}\n      モック: ${JSON.stringify(cut(c))}`;
+      // **いまは警告。** scan 側に既知の読み取り誤りが39件あり、error にすると
+      // 変換が一切通らなくなる。scan を変換器のモデルに寄せて（実装を1つにして）
+      // 差がゼロになった時点で error に上げる。
+      // 件数が減ったかどうかは出力を数えれば分かる状態にしてある。
+      errors.warn(relPath, null, msg);
     }
   }
 }
