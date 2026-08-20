@@ -26,16 +26,10 @@ cd ../..
 mkdir -p .claude/commands
 cp .claude/ichiki/commands/*.md .claude/commands/
 
-# 4. 案件設定を作る
-cat > .ichiki.json <<'JSON'
-{
-  "project": "案件名",
-  "mockup": "./",
-  "theme_dir": "/Users/you/Local Sites/案件名/app/public/wp-content/themes/案件名",
-  "site_url": "http://localhost:10000",
-  "ichiki_version": "0.3.0"
-}
-JSON
+# 4. 案件設定とフィールド台帳を作る
+#    .ichiki.json が無ければ scan が作る。theme_dir と site_url は環境依存なので
+#    空で出るので、書き足す。
+node .claude/ichiki/bin/ichiki.js scan <モックのディレクトリ> <出力先>
 
 # 5. 受け入れ状態を確認する
 node .claude/ichiki/bin/ichiki.js doctor

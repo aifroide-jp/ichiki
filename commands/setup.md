@@ -57,19 +57,24 @@ scan は**宣言（`data-*`）を読むだけ**で、推測しない。同じモ
      `@.claude/ichiki/rules/vocabulary.md` の import に任せ、本文に展開しない。
    - 「## ACF化除外」に、この案件だけの除外があれば書く。
 
-5. `.ichiki.json` を用意する。
+5. `.ichiki.json` を確認する。
+
+   **scan が作る（無ければ）。手で書かない。** `title_separator` も既定値が入る。
 
    ```jsonc
    {
      "project": "…",
      "mockup": "./",
-     "theme_dir": "…/wp-content/themes/…",
-     "site_url": "http://localhost:10000",
+     "theme_dir": "…/wp-content/themes/…",   // 環境依存。空で出るので書き足す
+     "site_url": "http://localhost:10000",   // 同上
+     "title_separator": " | ",               // <title> の区切り。既定 " | "
      "ichiki_version": "0.3.0"
    }
    ```
 
-   `ichiki_version` を書いておくと、本体とのバージョン違いを警告できる。
+   `title_separator` はモックの `<title>` がその区切りで書かれているかを
+   変換時に全ページ検査する。違えば名指しで停止するので、**モックを書くときに
+   このファイルを見る必要はない。**
 
 ## 守ること
 

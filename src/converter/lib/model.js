@@ -10,6 +10,8 @@ const { analyzeNavStructure } = require('./nav-structure');
 // を proposal/shared/site-path.js に一本化しており、ここでは二重実装しない。
 const { normalizeOuterForCompare } = require('../../shared/site-path');
 
+const { DEFAULT_SEPARATOR, splitFrontTitle, verifyTitles, ownTitlePart } = require('../../shared/site-title');
+
 function outerHtml(page, el) {
   const loc = el.sourceCodeLocation;
   return loc ? page.html.slice(loc.startOffset, loc.endOffset) : null;
@@ -108,7 +110,7 @@ function collectFieldsIn(page, rootEl, model, errors) {
   return out;
 }
 
-function buildModel(pages, errors) {
+function buildModel(pages, errors, opts = {}) {
   const model = {
     pages,
     front: null,
@@ -226,6 +228,21 @@ function buildModel(pages, errors) {
 
   errors.throwIfAny();
 
+  // --- 1.5 `<title>` の材料を確定する ---
+  // 区切り文字は案件の設定（.ichiki.json の title_separator、既定 " | "）。
+  // サイト名とタグラインはトップの <title> を割って得る。モックに2箇所書かせない。
+  // WP に組み立てさせるための材料であって、逐語の表は作らない
+  // （表にすると管理画面から作った新規ページが規則の外に落ちる）。
+  {
+    const separator = opts.titleSeparator || DEFAULT_SEPARATOR;
+    const frontTitle = model.front ? model.front.title : '';
+    const { siteName, tagline } = splitFrontTitle(frontTitle, separator);
+    model.siteTitle = { separator, siteName, tagline };
+    if (model.front && !siteName) {
+      errors.add(model.front.relPath, 1, 'トップの <title> が空です。サイト名を決められません');
+    }
+  }
+
   // --- 2. リンク解決レジストリ（サイトパス→ページ種別）を先に作る ---
   model.allPages = pages;
   model.linkRegistry = buildLinkRegistry(pages.filter((p) => p.dataPage));
@@ -297,6 +314,19 @@ function buildModel(pages, errors) {
   }
 
   errors.throwIfAny();
+
+  // --- 3.5 CPT のラベルを確定する（一覧ページの <title> の固有部） ---
+  // 実行時に文字列を剥がすのではなく、ここで決めて PHP には literal を出す。
+  for (const [cpt, entry] of model.cptMap) {
+    entry.label = entry.archivePage
+      ? ownTitlePart({
+          title: entry.archivePage.title,
+          separator: model.siteTitle.separator,
+          siteName: model.siteTitle.siteName,
+          label: null,
+        }) || cpt
+      : cpt;
+  }
 
   // --- 4. CPT ごとのフィールド集合を確定する（複数 single がある場合は構造一致を検証） ---
   for (const [cpt, entry] of model.cptMap) {
@@ -605,6 +635,29 @@ function buildModel(pages, errors) {
   model.skipLinkHtml = skipLinkRawHtml || null;
 
   errors.throwIfAny();
+
+  // --- 最後に `<title>` を検査する ---
+  // 設定の区切り文字とモックの実際の書き方がズレていれば、ここで止める。
+  // モックを書くときに .ichiki.json を見る必要はない。ここが名指しで教える。
+  {
+    const cptOf = new Map();
+    for (const [, entry] of model.cptMap) {
+      for (const sp of entry.singlePages) cptOf.set(sp, entry.label);
+      for (const [, vp] of entry.variantPages || []) cptOf.set(vp, entry.label);
+    }
+    verifyTitles(
+      {
+        separator: model.siteTitle.separator,
+        siteName: model.siteTitle.siteName,
+        pages: pages
+          .filter((p) => p.dataPage)
+          .map((p) => ({ relPath: p.relPath, title: p.title, isFront: p === model.front, page: p })),
+        // 中間区画は「その CPT の一覧ページの名前」。詳細ページだけが持ちうる。
+        labelOf: (x) => cptOf.get(x.page) || null,
+      },
+      errors
+    );
+  }
 
   return model;
 }

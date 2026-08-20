@@ -8,6 +8,7 @@ const { findHtmlFiles } = require('./lib/discover');
 const { loadPage } = require('./lib/load-page');
 const { ErrorCollector } = require('./lib/errors');
 const { buildModel } = require('./lib/model');
+const { readConfig } = require('../shared/project-config');
 const { loadAcfMap, checkAgainstModel, checkFieldTypes } = require('./lib/acf-map');
 const { copyAssets } = require('./lib/gen/assets');
 const {
@@ -94,7 +95,9 @@ function main() {
   const outputFiles = new Map(); // relPath -> content
 
   try {
-    model = buildModel(pages, errors);
+    // `<title>` の区切り文字は案件の設定（.ichiki.json）。既定は " | "。
+    const { conf } = readConfig(mockupDir);
+    model = buildModel(pages, errors, { titleSeparator: conf.title_separator });
 
     if (acfMapPath) {
       const map = loadAcfMap(path.resolve(acfMapPath));

@@ -50,9 +50,10 @@ function generateFunctionsPhp(model, errors) {
     lines.push(`    register_post_type( ${phpSingleQuote(postType)}, array(`);
     // ラベルは一覧ページの <title> から。CPT スラッグをそのまま出すと
     // 管理画面のメニューにも一覧ページの <title> にも "center" と出る（実測）。
-    const cptLabel = (entry.archivePage && entry.archivePage.title) || cpt;
-    const labelExpr =
-      cptLabel === cpt ? phpSingleQuote(cpt) : `nkk_page_title( ${phpSingleQuote(cptLabel)} )`;
+    // ラベルはビルド時に確定している（model.js が一覧ページの <title> から取る）。
+    // 実行時にサイト名を剥がしていた頃は、blogname が未設定の環境で
+    // 文書タイトル全体がそのままメニュー名になっていた。
+    const labelExpr = phpSingleQuote(entry.label || cpt);
     lines.push(`        'label' => ${labelExpr},`);
     lines.push("        'labels' => array(");
     lines.push(`            'name' => ${labelExpr},`);
@@ -268,25 +269,68 @@ function generateFunctionsPhp(model, errors) {
   // 以前は functions.php と seed-menus.php に同じ str_replace が別々に書かれており、
   // 実測で片方（nkk_get_page_permalink）だけ変換を忘れていた。
   // その結果 wysiwyg 内のリンクが href="" になり、現在ページへ戻るリンクになっていた。
-  // モックの <title> は「ページ名 | サイト名」という**文書タイトル全体**。
-  // WordPress は投稿タイトルにサイト名を足して文書タイトルを作るので、
-  // そのまま使うとサイト名が二重になる（実測: "お問合せ | 北九州 – 北九州"）。
-  //
-  // サイト名は推測せず get_bloginfo('name') の実値と照合して落とす。
-  // 一致しなければ何もしない（勝手に切らない）。
-  // seed の投稿タイトルと CPT のラベルの両方が使う。**実装はここ1つ。**
-  lines.push('function nkk_page_title( $doc_title ) {');
-  lines.push("    $site = get_bloginfo( 'name' );");
-  lines.push("    if ( $site === '' ) { return $doc_title; }");
-  lines.push("    foreach ( array( ' | ', ' - ', ' – ' ) as $sep ) {");
-  lines.push('        $suffix = $sep . $site;');
-  lines.push('        if ( substr( $doc_title, -strlen( $suffix ) ) === $suffix ) {');
-  lines.push('            return substr( $doc_title, 0, -strlen( $suffix ) );');
-  lines.push('        }');
-  lines.push('    }');
-  lines.push('    return $doc_title;');
+  // `<title>` は WordPress に組み立てさせる。**逐語の表は作らない。**
+  // 表にすると、お客様が管理画面から作った新規ページが規則の外に落ちて、
+  // そのページだけ区切りが WP 既定（– / en dash）になる。
+  // 材料（区切り文字・サイト名・タグライン・CPTラベル）だけを渡す。
+  // WordPress は implode( " $sep ", ... ) と**空白で囲んで**結合する。
+  // 設定値をそのまま返すと "記事名  |  サイト名" と空白が二重になるので、
+  // 前後の空白を落として渡す。
+  // 逆に、前後に空白の無い区切り（"｜" など）は WP 側の空白が必ず入るため
+  // モックと一致させられない。その場合はここで停止する（黙って違うものを出さない）。
+  const sep = model.siteTitle.separator;
+  if (sep !== ` ${sep.trim()} `) {
+    errors.add(
+      '.ichiki.json',
+      null,
+      `title_separator ${JSON.stringify(sep)} は前後に半角空白が必要です。\n` +
+        `      WordPress は区切りを空白で囲んで結合するため、"｜" のような形は再現できません。`
+    );
+  }
+  lines.push('function nkk_document_title_separator( $sep ) {');
+  lines.push(`    return ${phpSingleQuote(sep.trim())};`);
   lines.push('}');
+  lines.push("add_filter( 'document_title_separator', 'nkk_document_title_separator' );");
   lines.push('');
+  // 詳細ページの中間区画（"記事名 | お知らせ | サイト名" の「お知らせ」）。
+  // WordPress は入れないので足す。モックがそう書いているため。
+  // **モックが中間区画を書いている CPT だけ**に足す。
+  // 全 CPT に足すと、書いていないページ（"平尾台 | サイト名"）が
+  // "平尾台 | 北九州市の自然スポット | サイト名" になってモックとズレる。
+  const singleLabels = [];
+  const st = model.siteTitle;
+  for (const [cpt, entry] of model.cptMap) {
+    if (!entry.label || entry.label === cpt) continue;
+    const sample = entry.canonicalSingle;
+    if (!sample || !sample.title) continue;
+    if (!sample.title.endsWith(st.separator + entry.label + st.separator + st.siteName)) continue;
+    singleLabels.push([`${CPT_PREFIX}${cpt}`, entry.label]);
+  }
+  if (singleLabels.length) {
+    lines.push('function nkk_document_title_parts( $parts ) {');
+    lines.push('    $labels = array(');
+    for (const [pt, label] of singleLabels) {
+      lines.push(`        ${phpSingleQuote(pt)} => ${phpSingleQuote(label)},`);
+    }
+    lines.push('    );');
+    // 挿入位置が要る。WordPress の $parts は詳細ページで title → (page) → site の順で、
+    // 末尾に足すと "記事名 | サイト名 | お知らせ" になる。site の**手前**に入れる。
+    lines.push('    if ( is_singular() ) {');
+    lines.push('        $pt = get_post_type();');
+    lines.push('        if ( isset( $labels[ $pt ] ) ) {');
+    lines.push('            $out = array();');
+    lines.push('            foreach ( $parts as $k => $v ) {');
+    lines.push("                if ( $k === 'site' ) { $out['tagline'] = $labels[ $pt ]; }");
+    lines.push('                $out[ $k ] = $v;');
+    lines.push('            }');
+    lines.push('            return $out;');
+    lines.push('        }');
+    lines.push('    }');
+    lines.push('    return $parts;');
+    lines.push('}');
+    lines.push("add_filter( 'document_title_parts', 'nkk_document_title_parts' );");
+    lines.push('');
+  }
   lines.push('function nkk_page_slug( $page_id ) {');
   lines.push("    return str_replace( '_', '-', (string) $page_id );");
   lines.push('}');

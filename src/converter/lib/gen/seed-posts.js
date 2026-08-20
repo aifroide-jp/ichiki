@@ -19,6 +19,7 @@
 // CF7 フォームは inc/seed-cf7.php、メニューは inc/seed-menus.php が担当する。
 
 const { phpSingleQuote } = require('../php-util');
+const { ownTitlePart } = require('../../../shared/site-title');
 const { CPT_PREFIX } = require('../constants');
 
 // image 型は URL 文字列では入らない（ACF は添付ファイル ID を持つ）ので、
@@ -61,6 +62,20 @@ function fieldAssignments(scopeSlug, fields, indent) {
   }
   L.push(...imageAssignments(scopeSlug, fields, indent));
   return L;
+}
+
+// 文書タイトルからページ固有部を取り出す。区切り文字とサイト名は確定しているので
+// 長さで落とすだけ。実行時に候補を順に試す必要はない。
+function ownTitle(model, page, label) {
+  if (!page || !page.title) return '';
+  const st = model.siteTitle || {};
+  if (page === model.front) return st.siteName || page.title;
+  return ownTitlePart({
+    title: page.title,
+    separator: st.separator,
+    siteName: st.siteName,
+    label: label || null,
+  });
 }
 
 function generateSeedPostsPhp(model) {
@@ -137,7 +152,7 @@ function generateSeedPostsPhp(model) {
   L.push('    $post_id = wp_insert_post( array(');
   L.push("        'post_type'   => $post_type,");
   L.push("        'post_name'   => $slug,");
-  L.push("        'post_title'  => nkk_page_title( $title ),");
+  L.push("        'post_title'  => $title,");
   L.push("        'post_status' => 'publish',");
   L.push('    ) );');
   L.push('    if ( is_wp_error( $post_id ) ) { return array( 0, false ); }');
@@ -148,12 +163,27 @@ function generateSeedPostsPhp(model) {
   L.push('function nkk_seed_posts() {');
   L.push("    if ( ! function_exists( 'update_field' ) ) { return; }");
   L.push("    if ( get_option( 'nkk_seeded_posts' ) ) { return; }");
+  // サイト名とタグラインはモックのトップの <title> から。
+  // 入れていなかったため blogname はインストーラの値のまま、blogdescription は空で、
+  // 実サイトのトップが「アーバンネイチャー北九州」だけになっていた
+  // （モックは「… | 都市と自然、近いからこそおもしろい。」）。
+  // WP が <title> を組み立てる材料なので、ここが空だと全ページに波及する。
+  if (model.siteTitle && model.siteTitle.siteName) {
+    L.push(`    update_option( 'blogname', ${phpSingleQuote(model.siteTitle.siteName)} );`);
+  }
+  if (model.siteTitle && model.siteTitle.tagline) {
+    L.push(`    update_option( 'blogdescription', ${phpSingleQuote(model.siteTitle.tagline)} );`);
+  }
+
   L.push('');
 
   // --- 1. 固定ページ ---
   for (const [pageId, entry] of model.pageMap) {
     const slug = pageId.replace(/_/g, '-');
-    const title = (entry.page && entry.page.title) || pageId;
+    // 投稿タイトルは文書タイトルの**固有部だけ**。サイト名は WP が足す。
+    // 実行時に剥がしていた頃は中間区画が残り、管理画面の一覧に
+    // 「…しました | お知らせ」と出ていた（実測）。
+    const title = ownTitle(model, entry.page) || pageId;
     L.push(`    // 固定ページ: ${pageId}`);
     L.push(
       `    list( $post_id, $created ) = nkk_seed_get_or_create( 'page', ${phpSingleQuote(slug)}, ${phpSingleQuote(title)}, ${phpSingleQuote(`page-${pageId}.php`)} );`
@@ -170,7 +200,7 @@ function generateSeedPostsPhp(model) {
     const postType = `${CPT_PREFIX}${cpt}`;
     const rel = entry.canonicalSingle.relPath || '';
     const slug = rel.replace(/\.html$/, '').split('/').pop() || cpt;
-    const title = entry.canonicalSingle.title || cpt;
+    const title = ownTitle(model, entry.canonicalSingle, entry.label) || cpt;
     L.push(`    // CPT 初期記事: ${postType}（モック ${rel} の内容）`);
     L.push(
       `    list( $post_id, $created ) = nkk_seed_get_or_create( ${phpSingleQuote(postType)}, ${phpSingleQuote(slug)}, ${phpSingleQuote(title)} );`
@@ -191,7 +221,7 @@ function generateSeedPostsPhp(model) {
   if (model.front && model.front.ownFields && model.front.ownFields.length) {
     L.push('    // トップページ（front のフィールドの受け皿）');
     L.push(
-      `    list( $post_id, $created ) = nkk_seed_get_or_create( 'page', 'front', ${phpSingleQuote(model.front.title || 'トップページ')} );`
+      `    list( $post_id, $created ) = nkk_seed_get_or_create( 'page', 'front', ${phpSingleQuote(ownTitle(model, model.front) || 'トップページ')} );`
     );
     L.push('    if ( $post_id ) {');
     L.push("        update_option( 'show_on_front', 'page' );");

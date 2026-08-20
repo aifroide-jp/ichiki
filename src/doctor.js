@@ -67,6 +67,17 @@ if (conf) {
     ok(`バージョンが一致している（${VERSION}）`);
   }
   if (!conf.mockup) notes.push('.ichiki.json に mockup が無い（コマンドで毎回パスを渡すことになる）');
+  for (const k of ['theme_dir', 'site_url']) {
+    if (!conf[k]) ng(`.ichiki.json の ${k} が空`, '環境に合わせて書いてください（scan は埋められません）');
+  }
+  if (!conf.title_separator) {
+    notes.push('.ichiki.json に title_separator が無い（既定 " | " で扱う。scan を回すと書き込まれる）');
+  } else if (conf.title_separator !== ` ${String(conf.title_separator).trim()} `) {
+    ng(
+      `.ichiki.json の title_separator ${JSON.stringify(conf.title_separator)} は前後に半角空白が必要`,
+      'WordPress が区切りを空白で囲んで結合するため、"｜" のような形は再現できません'
+    );
+  }
 }
 
 // 4. スラッシュコマンドのコピーが本体と同じか

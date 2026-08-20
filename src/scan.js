@@ -35,6 +35,8 @@ const { findHtmlFiles } = require('./converter/lib/discover');
 const { loadPage } = require('./converter/lib/load-page');
 const { ErrorCollector } = require('./converter/lib/errors');
 const { buildModel, collectFieldsIn } = require('./converter/lib/model');
+const { readConfig, writeConfig, FILENAME } = require('./shared/project-config');
+const { DEFAULT_SEPARATOR } = require('./shared/site-title');
 
 function pageIdFromFile(rel) {
   let id = rel.replace(/\.html$/i, '');
@@ -126,6 +128,45 @@ function renderClaudeMd(acfMap, tmplPath) {
     .replace(/\{\{PAGES\}\}/g, pageLines);
 }
 
+// .ichiki.json を用意する。**既にある値は書き換えない。**
+// 上書きすると theme_dir / site_url のような環境依存の設定を壊す。
+function ensureProjectConfig(confPath, conf, rootDir, projectName, model) {
+  const target = confPath || path.join(process.cwd(), FILENAME);
+  const before = JSON.stringify(conf);
+  const next = { ...conf };
+  const added = [];
+
+  if (!next.project) { next.project = projectName; added.push(`project: ${projectName}`); }
+  if (!next.mockup) {
+    const rel = path.relative(path.dirname(target), rootDir).split(path.sep).join('/') || '.';
+    next.mockup = rel === '.' ? './' : rel;
+    added.push(`mockup: ${next.mockup}`);
+  }
+  if (next.theme_dir === undefined) { next.theme_dir = ''; added.push('theme_dir: （未設定。書いてください）'); }
+  if (next.site_url === undefined) { next.site_url = ''; added.push('site_url: （未設定。書いてください）'); }
+  if (next.title_separator === undefined) {
+    // 既定値を入れる。**推測ではない。** モックがこの区切りで書かれているかは
+    // 変換時に全ページ検査し、違えば名指しで停止する。
+    next.title_separator = DEFAULT_SEPARATOR;
+    added.push(`title_separator: ${JSON.stringify(DEFAULT_SEPARATOR)}`);
+  }
+  if (!next.ichiki_version) {
+    try {
+      next.ichiki_version = require('../package.json').version;
+      added.push(`ichiki_version: ${next.ichiki_version}`);
+    } catch { /* package.json が無い配置では飛ばす */ }
+  }
+
+  if (JSON.stringify(next) === before) return;
+  writeConfig(target, next);
+  console.log('');
+  console.log(`${confPath ? '更新' : '作成'}: ${path.relative(process.cwd(), target)}`);
+  for (const a of added) console.log(`  ${a}`);
+  const site = model.siteTitle;
+  console.log(`  ※ <title> の区切りは ${JSON.stringify(site.separator)} として扱いました。`);
+  console.log(`     サイト名 "${site.siteName}"${site.tagline ? ` / タグライン "${site.tagline}"` : ''}`);
+}
+
 function main() {
   const pIdx = process.argv.indexOf('--project');
   const projectName = pIdx >= 0 ? process.argv[pIdx + 1] : null;
@@ -148,7 +189,8 @@ function main() {
   const errors = new ErrorCollector();
   errors.allowUnresolvedLinks = allowUnresolvedLinks;
   const loaded = files.map((f) => loadPage(f.abs, f.rel));
-  const model = buildModel(loaded, errors);
+  const { path: confPath, conf } = readConfig(rootDir);
+  const model = buildModel(loaded, errors, { titleSeparator: conf.title_separator });
   errors.throwIfAny();
 
   const pages = [];
@@ -195,6 +237,11 @@ function main() {
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(path.join(outDir, 'acf-map.yaml'), yaml.dump(acfMap, { lineWidth: 120, noRefs: true }), 'utf8');
   fs.writeFileSync(path.join(outDir, 'coverage.json'), JSON.stringify(coverage, null, 2), 'utf8');
+
+  // 案件設定（.ichiki.json）を用意する。
+  // 無ければ作り、title_separator が無ければ足す。人が JSON を手打ちする場面を消す。
+  // theme_dir と site_url は環境依存なので埋められない。空で出して doctor に任せる。
+  ensureProjectConfig(confPath, conf, rootDir, acfMap.project, model);
 
   const tmplPath = path.join(__dirname, '..', 'templates', 'CLAUDE.md.tmpl');
   if (fs.existsSync(tmplPath)) {
