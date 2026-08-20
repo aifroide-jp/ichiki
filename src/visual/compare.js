@@ -52,7 +52,15 @@ const FREEZE = `
 `;
 
 async function shoot(page, url, file) {
-  await page.goto(url, { waitUntil: 'networkidle' });
+  // networkidle だけで待つと、外部の動画（nature-kitakyushu.com の .mp4）が
+  // 落ちてこないときに永遠に終わらない。**比較したいのは見た目であって通信ではない。**
+  // 落ちてこなくても描画は済んでいるので、時間で打ち切って先へ進む。
+  try {
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 15000 });
+  } catch (e) {
+    await page.goto(url, { waitUntil: 'load', timeout: 30000 });
+    console.log(`  ※ ${url}: networkidle にならないので load で打ち切りました（外部リソース待ち）`);
+  }
   await page.addStyleTag({ content: FREEZE });
   // スライドショーのタイマーを止め、必ず1枚目を表示させる
   await page.evaluate(() => {
