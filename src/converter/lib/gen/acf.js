@@ -26,12 +26,42 @@ function fieldToAcf(groupSlug, field) {
   return def;
 }
 
+// data-section の切り替わりに ACF のタブを挟む。
+//
+// タブを入れないと編集画面が1列になる。実測: nkk_event は67フィールドが
+// 仕切りなしで並んでいた。L1 が検収でこれを上から見るのは現実的でない。
+//
+// タブ名は data-section-label（日本語）。省略時は data-section の値をそのまま出す。
+// **見出しテキストから推測しない。** 宣言の無い情報を勝手に読むと、
+// 見出しの無いセクションで破綻し、しかも何が出るか書いた人に予測できない。
+//
+// tab は ACF 無料版に同梱されている（実測: 6.8.4 の includes/fields に class-acf-field-tab.php）。
+function withSectionTabs(groupSlug, fields) {
+  const out = [];
+  let current = null;
+  for (const f of fields) {
+    const id = f.section && f.section.id;
+    if (id && id !== current) {
+      current = id;
+      out.push({
+        key: `field_${groupSlug}_tab_${id}`,
+        label: (f.section && f.section.label) || id,
+        name: '',
+        type: 'tab',
+        placement: 'top',
+      });
+    }
+    out.push(fieldToAcf(groupSlug, f));
+  }
+  return out;
+}
+
 function buildFieldGroupPhp(groupSlug, title, fields, location, extra) {
   const group = Object.assign(
     {
       key: `group_${groupSlug}`,
       title,
-      fields: fields.map((f) => fieldToAcf(groupSlug, f)),
+      fields: withSectionTabs(groupSlug, fields),
       location,
       hide_on_screen: ['the_content'],
     },

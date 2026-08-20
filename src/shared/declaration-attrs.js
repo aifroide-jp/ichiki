@@ -23,6 +23,7 @@ const DECLARATION_ATTRS = new Set([
   'data-page-variant',
   'data-cpt',
   'data-section',
+  'data-section-label',
   'data-acf',
   'data-acf-type',
   'data-acf-url',

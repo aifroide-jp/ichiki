@@ -50,6 +50,8 @@ function run(page) {
       // data-cf7-group-if は「event_target=子ども」のように**比較する内容そのもの**を書く。
       // 識別子ではないので PHP 変数名にも ACF キーにもならず、日本語で正しい（6.2節）。
       if (attrName === 'data-cf7-group-if') continue;
+      // data-section-label は ACF の編集画面に出るタブ名。識別子ではないので日本語可（2.5節）。
+      if (attrName === 'data-section-label') continue;
       if (NON_ASCII_RE.test(value)) {
         issues.push(
           mk(page, 'L13', 'error', page.attrLineOf($el, attrName), `${attrName}="${value}" に ASCII 以外の文字が含まれています`)

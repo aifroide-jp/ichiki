@@ -19,17 +19,23 @@ function outerHtml(page, el) {
 // ネストした data-common / data-loop の内側は呼び出し側で除外範囲として渡す。
 function collectFieldsShallow(page, $, rootEl, errors, excludeSet, linkRegistry) {
   const fields = [];
-  const walk = (el) => {
+  // どの data-section の中で見つけたかを覚える。ACF の編集画面をタブで区切るのに使う
+  // （acf.js）。覚えないと67フィールドが仕切りなしで1列に並ぶ。
+  const walk = (el, section) => {
     if (!el || el.type !== 'tag') return;
     if (excludeSet && excludeSet.has(el)) return;
     const $el = $(el);
+    const sec = $el.attr('data-section')
+      ? { id: $el.attr('data-section'), label: $el.attr('data-section-label') || null }
+      : section;
     if ($el.attr('data-acf') !== undefined || $el.attr('data-acf-url') !== undefined) {
       const { fields: f } = analyzeField(page, $, el, { linkRegistry }, errors);
+      for (const one of f) if (sec && !one.section) one.section = sec;
       fields.push(...f);
     }
-    for (const child of el.children || []) walk(child);
+    for (const child of el.children || []) walk(child, sec);
   };
-  for (const child of rootEl.children || []) walk(child);
+  for (const child of rootEl.children || []) walk(child, null);
   return fields;
 }
 
@@ -41,7 +47,7 @@ function findAll(rootEl, $, attrName) {
     if (el.attribs && Object.prototype.hasOwnProperty.call(el.attribs, attrName)) out.push(el);
     for (const child of el.children || []) walk(child);
   };
-  for (const child of rootEl.children || []) walk(child);
+  for (const child of rootEl.children || []) walk(child, null);
   return out;
 }
 

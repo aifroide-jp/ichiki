@@ -151,6 +151,24 @@ CPT を推定しており、インスタンスが1件しかない CPT（`nkk_pho
 - `data-common` を持つ section には不要（common 側に回るため）
 - 値は ASCII 小文字・数字・`_`
 
+### 編集画面のタブ名（`data-section-label`）
+
+`data-section` は **ACF の編集画面をタブで区切る**のに使われる。
+タブ名は `data-section-label` で指定する。
+
+```html
+<section data-section="venue" data-section-label="会場・アクセス">
+```
+
+- **省略できる。** 書かなければ `data-section` の値（ASCII）がそのままタブ名になる
+- **日本語を書いてよい**（L13 の例外。識別子ではなく画面に出る文言のため）
+- 見出しテキストからは**推測しない**。見出しの無いセクションで破綻するうえ、
+  何が出るか書いた人に予測できない
+
+> 実測: タブを入れる前は `nkk_event` の67フィールドが仕切りなしで1列に並んでいた。
+> L1 が検収でこれを上から見るのは現実的でない。
+> `tab` は ACF 無料版に同梱されている（6.8.4 で確認）。
+
 **なぜ必要か（実測で判明）**: v0.1 はフィールドだけ宣言させ、セクションを宣言させていなかった。
 その結果、制約モックの `<section>` が持つのは `section--white` / `section--gray` という
 レイアウト用クラスだけになり、KNOWN-LIMITATIONS の根本原因メモが既存モックについて指摘していた
@@ -714,7 +732,7 @@ images/
 | L24 | 単独チェックボックスに `data-cf7-acceptance` の有無が明示されている（warn）／ファイル欄に `data-cf7-limit` がある（error）。6.1節 | error / warn |
 | L11 | ページ内 `<style>` タグが無い | error |
 | L12 | `style="…"` 属性が無い | error |
-| L13 | class 名・`data-*` 値が全て ASCII（例外: `data-cf7-group-if` は比較する内容そのものを書くため日本語可。6.2節） | error |
+| L13 | class 名・`data-*` 値が全て ASCII（例外: `data-cf7-group-if` は比較する内容そのもの、`data-section-label` は画面に出る文言なので日本語可。6.2節 / 2.5節） | error |
 | L14 | 画像参照が `images/` 配下のみ（検査対象は `<img src>`。CSS の `background-image` と favicon は v0.1 では対象外） | error |
 | L15 | 全 `<img>` に `alt`（空 alt は `data-deco` **または `aria-hidden="true"`** が自身か祖先に付いている場合のみ。カルーセルの無限ループ用に複製されたカード等が該当） | error |
 | L16 | `images/` の全ファイルが `meta.yaml` に載っている | error |
