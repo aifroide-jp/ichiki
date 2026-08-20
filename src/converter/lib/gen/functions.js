@@ -181,6 +181,25 @@ function generateFunctionsPhp(model, errors) {
     );
   }
   const jsDeps = ['nkk-main', ...extDeps].map((h) => `'${h}'`).join(', ');
+
+  // モックの JS が投稿へのリンクを持つ場合のための対応表（スラッグ → パーマリンク）。
+  //
+  // モックは 'yamada.html' のような**モック内のパス**を書く（そうしないとモックとして
+  // 開いたときに回遊できない）。変換後それをそのまま出すと 404 になる。
+  // 実測: 拠点マップのマーカー10個が全部 404 だった。
+  //
+  // JS 側は NKK_PERMALINKS[slug] があればそれを使い、無ければモックのパスに戻す。
+  // **投稿がまだ無いスラッグは含まれない**ので、JS 側でリンクを出さない判断ができる。
+  lines.push('');
+  lines.push('    $nkk_permalinks = array();');
+  for (const cpt of model.cptMap.keys()) {
+    lines.push(
+      `    foreach ( get_posts( array( 'post_type' => '${CPT_PREFIX}${cpt}', 'posts_per_page' => -1 ) ) as $p ) {`
+    );
+    lines.push('        $nkk_permalinks[ $p->post_name ] = get_permalink( $p );');
+    lines.push('    }');
+  }
+  lines.push("    wp_localize_script( 'nkk-main', 'NKK_PERMALINKS', $nkk_permalinks );");
   // ページ固有 JS は css/page/*.css と同じ規約（js/page/<id>.js があれば読む）。
   if (model.pageJs) {
     if (model.pageJs.has('front')) {
