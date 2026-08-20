@@ -109,10 +109,13 @@ function checkAgainstModel(map, pages, errors) {
 // どれも acf-map.yaml に間違った値が入り、検収成果物（C1/C3）まで波及する。
 function checkFieldTypes(map, fields, relPath, errors) {
   for (const f of fields) {
-    const spec = map.byPage.get(relPath)?.fields.get(f.name) || map.common.get(f.name);
+    // フィールドを読んだページの台帳と照らす（relPath は出力先のページで、
+    // CPT では読み取り元と一致しない）。
+    const src = f.srcRel || relPath;
+    const spec = map.byPage.get(src)?.fields.get(f.name) || map.common.get(f.name);
     if (!spec) continue; // ループ項目の合流などで yaml 側に無いことがある
     if (spec.type && spec.type !== f.type) {
-      errors.add(relPath, null, `${f.name}: 型が acf-map.yaml と違います（yaml: ${spec.type} / モック: ${f.type}）`);
+      errors.add(src, null, `${f.name}: 型が acf-map.yaml と違います（yaml: ${spec.type} / モック: ${f.type}）`);
       continue; // 型が違えば値も違って当然なので、二重に出さない
     }
 
@@ -126,11 +129,11 @@ function checkFieldTypes(map, fields, relPath, errors) {
     if (y !== c) {
       const cut = (x) => (x.length > 70 ? x.slice(0, 70) + '…' : x);
       const msg = `${f.name}: 値が acf-map.yaml と違います\n      yaml: ${JSON.stringify(cut(y))}\n      モック: ${JSON.stringify(cut(c))}`;
-      // **いまは警告。** scan 側に既知の読み取り誤りが39件あり、error にすると
-      // 変換が一切通らなくなる。scan を変換器のモデルに寄せて（実装を1つにして）
-      // 差がゼロになった時点で error に上げる。
-      // 件数が減ったかどうかは出力を数えれば分かる状態にしてある。
-      errors.warn(relPath, null, msg);
+      // 台帳と生成物が食い違ったら止める。
+      // scan も変換器のモデルから台帳を書くようになったので、ここが割れるのは
+      // 「台帳が古い（scan を回し直していない）」ことを意味する。
+      // お客様と合意した台帳と実際の値が違えば合意が嘘になるので、警告では足りない。
+      errors.add(src, null, msg);
     }
   }
 }

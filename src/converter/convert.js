@@ -99,7 +99,18 @@ function main() {
     if (acfMapPath) {
       const map = loadAcfMap(path.resolve(acfMapPath));
       checkAgainstModel(map, pages, errors);
-      for (const page of pages) checkFieldTypes(map, collectPageFields(model, page), page.relPath, errors);
+      // 同じフィールドが複数ページのテンプレートに出る（CPT・サイト設定）ので、
+      // 読み取り元ページ＋名前で1回だけ照合する。
+      const seen = new Set();
+      for (const page of pages) {
+        const uniq = collectPageFields(model, page).filter((f) => {
+          const k = `${f.srcRel || page.relPath}\u0000${f.name}`;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+        checkFieldTypes(map, uniq, page.relPath, errors);
+      }
       console.log(`acf-map.yaml と突き合わせました: ${map.byPage.size} ページ / common ${map.common.size} フィールド`);
     }
 

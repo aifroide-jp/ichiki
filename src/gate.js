@@ -94,6 +94,7 @@ step('scan', 'node', [
   path.join(SRC, 'scan.js'),
   mockupDir,
   scanDir,
+  ...(allowUnresolved ? ['--allow-unresolved-links'] : []),
 ]);
 
 // 5. テーマ生成
@@ -106,8 +107,8 @@ step(
     themeDir,
     ...(allowUnresolved ? ['--allow-unresolved-links'] : []),
     // scan が出した acf-map.yaml と突き合わせる。
-    // scan と convert は同じモックを読む独立した2実装なので、読みが割れたら
-    // どちらかにバグがある。ここで止めないと、その事実が消える。
+    // 読み取り自体は同じ実装（converter/lib）に寄せてあるので、ここで割れるのは
+    // 「台帳が古い」か「モデルの経路が2つに分かれた」かのどちらか。どちらも事故なので止める。
     '--acf-map', path.join(scanDir, 'acf-map.yaml'),
   ]
 );
@@ -193,14 +194,15 @@ function main() {
     // 通ったステップでも**警告は握りつぶさない**。
     // 実測: acf-map.yaml との値の食い違い39件が warn で、gate には ✓ としか出ず、
     // 「問題が出るようにした」つもりで誰にも見えていなかった。
-    const warnLines = (r.output || '')
-      .split('\n')
-      .filter((l) => /^\s*(警告|WARN|.*と違います)/.test(l)).length;
-    const warnCount = ((r.output || '').match(/違います|警告 \d+ 件/g) || []).length;
+    // 通った段でも警告は隠さない。gate は各段の出力を捨てるので、
+    // 数だけでも出しておかないと「問題を見えるようにする」目的を達成できない。
+    // 件数は各段が自分で申告した「警告 N 件」を採る（拾い集めた行数を数えると
+    // 見出し行まで1件に数えてしまい、実測で 28件 を 1件 と表示していた）。
+    const declared = (r.output || '').match(/警告 (\d+) 件/);
+    const warnCount = declared ? Number(declared[1]) : 0;
     const tail =
       (r.skipped ? `（${r.skipped}）` : r.note ? `（${r.note}）` : '') +
       (warnCount ? `  ※ 警告 ${warnCount} 件` : '');
-    void warnLines;
     console.log(`✓ ${s.name}${tail}`);
     if (warnCount) warned.push({ name: s.name, output: r.output });
   }

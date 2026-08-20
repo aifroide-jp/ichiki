@@ -82,7 +82,9 @@ function main() {
   const sp = scanCmd.split(' ');
   const bp = buildCmd.split(' ');
 
-  run('scan', sp[0], [...sp.slice(1), MOCKUP, scanOut]);
+  // scan も変換器と同じ読み取りを使うので、同じ逃げ道が要る。
+  // 渡していなかったため、モックが未完成の間はスナップショットが取れなかった。
+  run('scan', sp[0], [...sp.slice(1), MOCKUP, scanOut, '--allow-unresolved-links']);
   run('変換', bp[0], [...bp.slice(1), MOCKUP, themeOut, '--allow-unresolved-links']);
 
   const got = { scan: manifestOf(scanOut), theme: manifestOf(themeOut) };

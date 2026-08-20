@@ -142,7 +142,7 @@ ichiki gate <mockup>
 bin/ichiki.js     単一入口。使えるものは全部 --help に出る
 src/
   lint/           規約への適合（L01〜L31）
-  scan.js         → acf-map.yaml / field-map.json / coverage.json / CLAUDE.md
+  scan.js         → acf-map.yaml / coverage.json / CLAUDE.md（読み取りは converter/ を使う）
   converter/      → WordPress テーマ
   verify/         coverage（宣言→出力）/ structure（class の維持）/ live（公開後）
   a11y/           pa11y + axe（WCAG2AA）

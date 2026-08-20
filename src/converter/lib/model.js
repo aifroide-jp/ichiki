@@ -30,7 +30,13 @@ function collectFieldsShallow(page, $, rootEl, errors, excludeSet, linkRegistry)
       : section;
     if ($el.attr('data-acf') !== undefined || $el.attr('data-acf-url') !== undefined) {
       const { fields: f } = analyzeField(page, $, el, { linkRegistry }, errors);
-      for (const one of f) if (sec && !one.section) one.section = sec;
+      for (const one of f) {
+        if (sec && !one.section) one.section = sec;
+        // どのページから読んだかを刻む。CPT のフィールドは代表の single ページから集めて
+        // archive にも single にも登録されるので、これが無いと台帳との突き合わせが
+        // 「archive の台帳に single の値」を当ててしまい、値が入れ替わって見える。
+        if (!one.srcRel) one.srcRel = page.relPath;
+      }
       fields.push(...f);
     }
     for (const child of el.children || []) walk(child, sec);
@@ -78,6 +84,28 @@ function excludedForFields(page, $) {
     }
   }
   return excluded;
+}
+
+// 台帳（scan）向け。rootEl **自身も含めて** フィールドを集める。
+// collectFieldsShallow を包むだけで、読み取り自体は analyzeField 1つに寄せてある
+// （scan が別実装を持っていた頃はデフォルト値が39件ズレていた）。
+function collectFieldsIn(page, rootEl, model, errors) {
+  // 除外は **rootEl の内側だけ** で数える。
+  // excludedForFields はページ本体用で data-common の部分木を丸ごと外すため、
+  // 共通ブロック自身のフィールドを聞かれたときに全部消えてしまう（実測: cta が空になった）。
+  const excluded = new Set();
+  for (const attr of ['data-common', 'data-loop-item', 'data-loop-sample']) {
+    for (const el of findAll(rootEl, page.$, attr)) {
+      for (const n of descendantsSet(el)) excluded.add(n);
+    }
+  }
+  const out = [];
+  const $root = page.$(rootEl);
+  if ($root.attr('data-acf') !== undefined || $root.attr('data-acf-url') !== undefined) {
+    out.push(...analyzeField(page, page.$, rootEl, { linkRegistry: model.linkRegistry }, errors).fields);
+  }
+  out.push(...collectFieldsShallow(page, page.$, rootEl, errors, excluded, model.linkRegistry));
+  return out;
 }
 
 function buildModel(pages, errors) {
@@ -581,4 +609,4 @@ function buildModel(pages, errors) {
   return model;
 }
 
-module.exports = { buildModel, outerHtml, findAll, descendantsSet, sitePathForRel };
+module.exports = { buildModel, collectFieldsIn, outerHtml, findAll, descendantsSet, sitePathForRel };

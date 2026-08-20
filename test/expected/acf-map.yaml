@@ -1,13 +1,11 @@
 project: fixture
-generated_by: proposal/scan/scan.js (制約語彙版・推測なし)
+generated_by: ichiki scan（変換器のモデルから生成）
 common:
   - id: header
     fields: []
   - id: footer
     fields:
-      - element: p
-        field_name: footer_copyright
-        tab: section
+      - field_name: footer_copyright
         type: textarea
         default: © 2026 アーバンネイチャー北九州
 pages:
@@ -22,14 +20,10 @@ pages:
     sections:
       - id: contact_form
         fields:
-          - element: h1
-            field_name: hero_title
-            tab: section
+          - field_name: hero_title
             type: text
             default: お問合せ
-          - element: p
-            field_name: hero_lead
-            tab: section
+          - field_name: hero_lead
             type: textarea
             default: 下記フォームよりお問い合わせください。
     nav:
@@ -76,40 +70,21 @@ pages:
     sections:
       - id: hero
         fields:
-          - element: h1
-            field_name: hero_title
-            tab: section
+          - field_name: hero_title
             type: text
             default: 北九州の自然と暮らす
-          - element: p
-            field_name: hero_lead
-            tab: section
+          - field_name: hero_lead
             type: textarea
             default: ネイチャーポジティブを地域から進めます。
-          - element: img
-            field_name: hero_image
-            tab: section
+          - field_name: hero_image
             type: image
             default: images/hero.jpg
             alt: 北九州の自然
       - id: spots
         fields:
-          - element: h2
-            field_name: spots_title
-            tab: section
+          - field_name: spots_title
             type: text
             default: 自然スポット
-          - element: img
-            field_name: hero_image
-            tab: section
-            type: image
-            default: images/spot.jpg
-            alt: 平尾台の草原
-          - element: h3
-            field_name: hero_title
-            tab: section
-            type: text
-            default: 平尾台
     loops:
       - cpt: spot
         order: date_desc
@@ -143,25 +118,17 @@ pages:
     sections:
       - id: detail
         fields:
-          - element: img
-            field_name: hero_image
-            tab: section
+          - field_name: hero_image
             type: image
             default: images/spot.jpg
             alt: 平尾台の草原
-          - element: h1
-            field_name: hero_title
-            tab: section
+          - field_name: hero_title
             type: text
             default: 平尾台
-          - element: p
-            field_name: hero_lead
-            tab: section
+          - field_name: hero_lead
             type: textarea
             default: 九州最大のカルスト台地。
-          - element: div
-            field_name: overview_body
-            tab: section
+          - field_name: overview_body
             type: wysiwyg
             default: <p>石灰岩の羊群原が広がり、季節ごとに異なる野草が見られます。</p>
     nav:

@@ -11,19 +11,24 @@
 ## 対象ページ
 {{PAGES}}
 
-## 実装（後処理：Claude Code）
-- 入力は `acf-map.yaml`。固定ルール（@.claude/ichiki/rules/ichiki.md）とお手本に従って実装する
-- 1ページ・1CPTずつ構築し、各段で検収ゲート（カバレッジ照合・構成チェック・PHP lint・WCAG）を通す
-- `acf-map.yaml` の機械命名は意味ベースの名前にリネームし、対応を `field-map.json` に記録する
-- 型・ページ種別・トップ・nav解決・画像方式は固定ルールに従い、判断に迷う境界は止めて確認する
+## 構築（コマンド）
+モックから WordPress テーマまで、AI の判断は入らない。全部コマンドで出る。
 
-## お手本（ゴールデンサンプル）
-- 参照先: 検証案件 nature-kitakyushu の既存実装
-  - `inc/acf-spot.php`（ACFフィールド定義の構造・粒度・命名・instructions）
-  - `single-nkk_spot.php`（テンプレートの構成・フォールバック・hide_on_screen）
-  - `archive-nkk_spot.php`（CPT一覧テンプレート）
-- この構造・命名・instructions の付け方に倣うこと
-- お手本は無断で変えない。変えたら再現性の基準がずれるため検証し直す
+```
+node .claude/ichiki/bin/ichiki.js gate <mockup>     # lint→scan→変換→検証を一括
+node .claude/ichiki/bin/ichiki.js convert <mockup> <themeDir>
+```
+
+- 入力はモックそのもの。`acf-map.yaml` は**お客様と合意するための台帳**であって、
+  変換の入力ではない（変換器はモックを読む）。両者が食い違えば `gate` が止める
+- フィールド名・型・タブ・トップ・nav 解決・画像方式は、すべてモックの宣言で決まる
+  （`.claude/ichiki/rules/vocabulary.md`）。推測する工程は無い
+- モックを直したら `gate` を回し直す。台帳も同時に出し直される
+
+## モックを触るとき
+お客様と合意するまでモックは何度も変わる。**規約を外すと変換が止まる**ので、
+編集の前に `.claude/ichiki/rules/vocabulary.md`（宣言の一覧）を読むこと。
+規約に合っているかは `ichiki lint <mockup>` で確認できる。
 
 ## ACF化除外
 <!-- 【人手】ここだけ確認・追記する。宣言ゼロでも動作する -->

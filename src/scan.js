@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 'use strict';
 
-// 制約語彙（proposal/vocabulary.md）に準拠したモックアップから
-//   - acf-map.yaml   （Ichiki Phase0 の出力形式）
-//   - field-map.json （機械命名 → 意味名の対応表）
+// モックアップ（制約語彙 rules/vocabulary.md 準拠）から
+//   - acf-map.yaml   （フィールド台帳。人が読む・お客様と合意する）
 //   - coverage.json  （テキスト取りこぼしゼロの証明）
+//   - CLAUDE.md      （案件用。templates/CLAUDE.md.tmpl から）
 // を生成する。
 //
-// 現行 Phase0 の scan との違いは「推測しないこと」だけである。
-//   現行: 祖先探索でセクション名を決め、クラス名の部分一致で hero/main を判定し、
-//         nav 配下の href しか拾わない（実測: auma.html は 94本中51本）。
-//   本版: data-page / data-section / data-acf / data-nav / data-cf7 の宣言を読むだけ。
-//         宣言が無ければ推測せずエラーで停止する。
+// **モックの読み取りは変換器（src/converter）の実装をそのまま呼ぶ。**
+//   以前は scan が独自にモックを読んでいた。同じ HTML を2つの実装が読むので、
+//   実測で39件の食い違いが出た（整形タグを落とす／入れ子フィールドの文字を飲み込む／
+//   data-loop-sample を除外しない／改行をまたぐ属性が読めない）。すべて scan 側の誤り。
+//   台帳が実際に生成される値とズレていれば、お客様と合意した内容が嘘になる。
+//   したがって scan は「変換器のモデルを YAML に書き出すだけ」にする。
 //
 // 取りこぼしゼロの定義（coverage.json で検証する等式）:
 //   全テキストノード
@@ -22,223 +23,100 @@
 //     + 未宣言（＝暗黙の固定文言。お客様と「更新対象外」の合意が要る分）
 //   右辺の合計が左辺と一致すること。分類できないテキストが1件もないこと。
 //
-// 分類そのものは proposal/shared/text-classify.js が唯一の実装で、lint L20 と共有する。
+// 分類そのものは src/shared/text-classify.js が唯一の実装で、lint L20 と共有する。
 
 const fs = require('fs');
 const path = require('path');
-const cheerio = require('cheerio');
 const yaml = require('js-yaml');
 
-// 型導出表・有効な型は proposal/shared/constants.js が唯一の定義場所（vocabulary.md 2.1）。
-// テキストの分類は proposal/shared/text-classify.js が唯一の実装で、lint L20 と共有する。
-const { TAG_TO_TYPE, VALID_ACF_TYPES } = require('./shared/constants');
 const { BUCKETS, classifyPage } = require('./shared/text-classify');
+const { navsOf, formsOf, decorationOf, metaOf, cssOf } = require('./shared/page-facts');
+const { findHtmlFiles } = require('./converter/lib/discover');
+const { loadPage } = require('./converter/lib/load-page');
+const { ErrorCollector } = require('./converter/lib/errors');
+const { buildModel, collectFieldsIn } = require('./converter/lib/model');
 
-const VALID_TYPES = new Set(VALID_ACF_TYPES);
-
-class ScanError extends Error {}
-
-function fail(file, msg) {
-  throw new ScanError(`${file}: ${msg}`);
-}
-
-// --- ページID（ichiki.md: 相対パス由来。index.html はディレクトリに畳む） ----
 function pageIdFromFile(rel) {
-  let p = rel.replace(/\.html$/, '');
-  p = p.replace(/(^|\/)index$/, '$1');
-  p = p.replace(/\/$/, '');
-  if (p === '') return 'index';
-  return p.replace(/[\/\-]/g, '_');
+  let id = rel.replace(/\.html$/i, '');
+  id = id.replace(/(^|\/)index$/i, '$1').replace(/\/$/, '');
+  if (id === '') id = 'index';
+  return id.replace(/[\/\-]/g, '_');
 }
 
-function findHtml(root) {
-  const out = [];
-  (function walk(dir) {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      const abs = path.join(dir, e.name);
-      if (e.isDirectory()) {
-        if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
-        walk(abs);
-      } else if (e.isFile() && e.name.toLowerCase().endsWith('.html')) {
-        out.push(abs);
-      }
-    }
-  })(root);
-  return out.sort();
+// 変換器のフィールド（{name,type,defaultValue,asset,alt}）を台帳の行にする。
+// element と tab は落とす。element はタグ名で、型を決めた後は誰も使わない。
+// tab は常に "section" で、実際のタブ分けは data-section から変換器が作る（gen/acf.js）。
+function ledgerRow(f) {
+  const row = { field_name: f.name, type: f.type };
+  if (f.type === 'image') {
+    // 画像は assets/ 配下に置かれる位置（モックルート基準に正規化済み）。
+    row.default = f.asset || '';
+    if (f.alt) row.alt = f.alt;
+  } else {
+    row.default = f.defaultValue == null ? '' : f.defaultValue;
+  }
+  return row;
 }
 
-// --- フィールド抽出 ----------------------------------------------------
-function extractFields($, $scope, file) {
-  const fields = [];
-  $scope.find('[data-acf], [data-acf-url]').addBack('[data-acf], [data-acf-url]').each((_, el) => {
-    const $el = $(el);
-    const tag = (el.tagName || el.name || '').toLowerCase();
-
-    const urlName = $el.attr('data-acf-url');
-    if (urlName) {
-      fields.push({
-        element: tag,
-        field_name: urlName,
-        tab: 'section',
-        type: 'url',
-        default: $el.attr('href') || '',
-      });
-    }
-
-    const name = $el.attr('data-acf');
-    if (!name) return;
-
-    let type = $el.attr('data-acf-type');
-    if (type) {
-      if (!VALID_TYPES.has(type)) fail(file, `data-acf="${name}": 未知の型 "${type}"`);
-    } else {
-      type = TAG_TO_TYPE[tag];
-      // 推測しない。導出表に無いタグは data-acf-type を要求する。
-      if (!type) fail(file, `data-acf="${name}": <${tag}> は型を導出できない。data-acf-type が必要`);
-    }
-
-    const f = { element: tag, field_name: name, tab: 'section', type };
-    if (type === 'image') {
-      f.default = $el.attr('src') || '';
-      const alt = $el.attr('alt');
-      if (alt) f.alt = alt;
-    } else if (type === 'wysiwyg') {
-      f.default = $el.html().trim();
-    } else {
-      f.default = $el.text().trim();
-    }
-    fields.push(f);
-  });
-  return fields;
-}
-
-// テキストの分類は proposal/shared/text-classify.js に一本化してある。
-// lint L20 と同じ関数を使うので、両者の集合は定義上一致する。
 function classifyTexts($, file) {
-  const { total, counts, unclaimed } = classifyPage($("body").get(0));
+  const { total, counts, unclaimed } = classifyPage($('body').get(0));
   return { file, total, counts, unclaimed };
 }
 
-// --- ページ1枚のスキャン ------------------------------------------------
-function scanPage(absPath, rootDir) {
-  const rel = path.relative(rootDir, absPath).split(path.sep).join('/');
-  const html = fs.readFileSync(absPath, 'utf8');
-  const $ = cheerio.load(html, { sourceCodeLocationInfo: true });
-
-  const $body = $('body');
-  const pageType = $body.attr('data-page');
-  if (!pageType) fail(rel, '<body> に data-page がない（vocabulary.md 1章）');
-
-  const page = {
-    id: pageIdFromFile(rel),
-    title: $('title').text().trim(),
-    file: rel,
-    page_type: pageType,
+function ledgerPage(page, model, errors) {
+  const $ = page.$;
+  const out = {
+    id: pageIdFromFile(page.relPath),
+    title: page.title,
+    file: page.relPath,
+    page_type: page.dataPage,
   };
-  if ($body.attr('data-cpt')) page.cpt = $body.attr('data-cpt');
-  if ($body.attr('data-page-id')) page.page_id = $body.attr('data-page-id');
-  // data-page-variant: 同じ投稿の別テンプレート（vocabulary.md 1.1）。
-  // これが無いと申込ページ（single-<cpt>-<variant>.php）を作れない。
-  if ($body.attr('data-page-variant')) page.variant = $body.attr('data-page-variant');
+  if (page.cpt) out.cpt = page.cpt;
+  if (page.pageId) out.page_id = page.pageId;
+  if (page.variant) out.variant = page.variant;
 
-  // このページが読む CSS。どのページがどの CSS を読むかは
-  // acf-map.yaml だけからテーマを組むのに要る（vocabulary.md 7章）。
-  page.css = [];
-  $('link[rel="stylesheet"][href]').each((_, el) => {
-    const href = $(el).attr('href');
-    // 外部の CSS（Google Fonts 等）はテーマの assets に入らないのでそのまま持つ。
-    // 正規化するとパスとして壊れる（実測: events/https:/fonts.googleapis.com/... になった）。
-    if (/^(https?:)?\/\//i.test(href)) { page.css.push(href); return; }
-    // モックルートからの相対に正規化する（../css/page/event.css → css/page/event.css）
-    const dir = path.posix.dirname(rel);
-    page.css.push(path.posix.normalize(path.posix.join(dir === '.' ? '' : dir, href)));
-  });
+  out.css = cssOf($, page.relPath, path);
 
-  // sections（data-common は common 側へ回すのでここでは除く）
-  page.sections = [];
+  out.sections = [];
   $('[data-section]').each((_, el) => {
-    const $s = $(el);
-    const id = $s.attr('data-section');
-    if (!id) fail(rel, 'data-section の値が空');
-    page.sections.push({ id, fields: extractFields($, $s, rel) });
+    out.sections.push({
+      id: $(el).attr('data-section'),
+      fields: collectFieldsIn(page, el, model, errors).map(ledgerRow),
+    });
   });
 
-  // ループ宣言（現行 acf-map.yaml には無い情報。制約版の増分）
   const loops = [];
   $('[data-loop]').each((_, el) => {
     const $l = $(el);
-    const $item = $l.children('[data-loop-item]');
+    const item = $l.children('[data-loop-item]').get(0);
     loops.push({
       cpt: $l.attr('data-loop'),
       order: $l.attr('data-loop-order') || 'date_desc',
       count: parseInt($l.attr('data-loop-count') || '-1', 10),
       // data-loop-repeat: 同じ中身の子を複数持つループの周回数（vocabulary.md 3.1 / L27）
       repeat: parseInt($l.attr('data-loop-repeat') || '1', 10),
-      item_fields: extractFields($, $item, rel).map((f) => f.field_name),
+      item_fields: item ? collectFieldsIn(page, item, model, errors).map((f) => f.name) : [],
     });
   });
-  if (loops.length) page.loops = loops;
+  if (loops.length) out.loops = loops;
 
-  // nav
-  page.nav = [];
-  $('[data-nav]').each((_, el) => {
-    const $n = $(el);
-    const links = [];
-    $n.find('a[href]').each((__, a) => {
-      links.push({ text: $(a).text().trim(), href: $(a).attr('href') });
-    });
-    page.nav.push({ location: $n.attr('data-nav'), links });
-  });
+  out.nav = navsOf($);
+  out.forms = formsOf($);
+  out.decoration = decorationOf($);
+  out.meta = metaOf($);
 
-  // forms（CF7）
-  page.forms = [];
-  $('[data-cf7]').each((_, el) => {
-    const $f = $(el);
-    const fields = [];
-    $f.find('[data-cf7-field]').each((__, i) => {
-      const $i = $(i);
-      fields.push({
-        name: $i.attr('data-cf7-field'),
-        tag: ($i.get(0).tagName || $i.get(0).name || '').toLowerCase(),
-        type: $i.attr('type') || ($i.get(0).tagName || '').toLowerCase(),
-        required: $i.attr('data-cf7-required') !== undefined,
-        placeholder: $i.attr('placeholder') || '',
-      });
-    });
-    page.forms.push({ id: $f.attr('data-cf7'), fields });
-  });
-
-  // decoration
-  page.decoration = [];
-  $('[data-deco], [aria-hidden="true"]').each((_, el) => {
-    const $d = $(el);
-    const tag = (el.tagName || el.name || '').toLowerCase();
-    const cls = ($d.attr('class') || '').split(/\s+/).filter(Boolean)[0];
-    page.decoration.push({
-      selector: cls ? `${tag}.${cls}` : tag,
-      reason: $d.attr('data-deco') !== undefined ? 'data-deco' : 'aria-hidden="true"',
-    });
-  });
-
-  // meta
-  page.meta = {
-    title: $('title').text().trim(),
-    description: $('meta[name="description"]').attr('content') || '',
-  };
-
-  // common（全ページに出るので後で1回にまとめる）
   const commons = [];
   $('[data-common]').each((_, el) => {
-    const $c = $(el);
-    commons.push({ id: $c.attr('data-common'), fields: extractFields($, $c, rel) });
+    commons.push({
+      id: $(el).attr('data-common'),
+      fields: collectFieldsIn(page, el, model, errors).map(ledgerRow),
+    });
   });
 
-  return { page, commons, coverage: classifyTexts($, rel) };
+  return { page: out, commons, coverage: classifyTexts($, page.relPath) };
 }
 
-// --- main --------------------------------------------------------------
-// 案件用 CLAUDE.md（templates/CLAUDE.md.tmpl から生成）。
-// 旧 scan が持っていた機能。差し込み口は3つだけなので、そのまま引き継ぐ。
+// 案件用 CLAUDE.md（templates/CLAUDE.md.tmpl から生成）。差し込み口は3つ。
 function renderClaudeMd(acfMap, tmplPath) {
   const tmpl = fs.readFileSync(tmplPath, 'utf8');
   const pageLines = (acfMap.pages || []).map((p) => `- ${p.title} (${p.file})`).join('\n');
@@ -251,61 +129,54 @@ function renderClaudeMd(acfMap, tmplPath) {
 function main() {
   const pIdx = process.argv.indexOf('--project');
   const projectName = pIdx >= 0 ? process.argv[pIdx + 1] : null;
-  const args = process.argv.slice(2);
+  // --allow-unresolved-links: 変換器と同じ意味。モックが未完成でリンク先がまだ無い間、
+  // 未解決の内部リンクをエラーではなく警告に落とす。scan も変換器と同じ読み取りを使う以上、
+  // 同じ逃げ道が要る（渡さないと台帳が作れず、モック作成中に台帳を見られなくなる）。
+  const allowUnresolvedLinks = process.argv.includes('--allow-unresolved-links');
+  const args = process.argv
+    .slice(2)
+    .filter((a, i, all) => a !== '--project' && all[i - 1] !== '--project' && a !== '--allow-unresolved-links');
   const rootDir = path.resolve(process.cwd(), args[0] || path.join(__dirname, '..', 'mockup'));
   const outDir = path.resolve(process.cwd(), args[1] || path.join(__dirname, 'out'));
 
-  const files = findHtml(rootDir);
+  const files = findHtmlFiles(rootDir);
   if (!files.length) {
     console.error(`*.html が見つかりません: ${rootDir}`);
     process.exit(2);
   }
 
+  const errors = new ErrorCollector();
+  errors.allowUnresolvedLinks = allowUnresolvedLinks;
+  const loaded = files.map((f) => loadPage(f.abs, f.rel));
+  const model = buildModel(loaded, errors);
+  errors.throwIfAny();
+
   const pages = [];
   const coverages = [];
   // data-common は「サイトの共通領域」を指す宣言であって、
   // **全ページが同じ構成を持つことは要求しない**（vocabulary.md 4章）。
-  //
   // 申し込みフォームのように、離脱を防ぐためナビも CTA も落とした簡易レイアウトの
-  // ページが実在する（実測: events/summer-camp-apply.html はヘッダーにナビが無く、
-  // フッターは footer--minimal、CTA バンドも無い）。
-  // 変換器はこれを「自前のシェルを持つページ」として扱い、get_header() を呼ばずに
-  // 完結した1枚を出す（converter/lib/model.js の ownsShell）。宣言の追加は要らない。
-  //
+  // ページが実在する。変換器はこれを「自前のシェルを持つページ」として扱う。
   // したがって scan も、宣言されている id を**和集合**で集めるだけにする。
-  // 同じ id なのに中身が違う場合は lint L09 が全ページ横断で検出するので、ここでは見ない。
-  const commonBlocks = new Map(); // id -> { id, fields }
+  // 同じ id なのに中身が違う場合は lint L09 が全ページ横断で検出する。
+  const commonBlocks = new Map();
 
-  for (const f of files) {
-    const { page, commons, coverage } = scanPage(f, rootDir);
-    pages.push(page);
-    coverages.push(coverage);
-    for (const c of commons) if (!commonBlocks.has(c.id)) commonBlocks.set(c.id, c);
+  for (const page of loaded) {
+    const r = ledgerPage(page, model, errors);
+    pages.push(r.page);
+    coverages.push(r.coverage);
+    for (const c of r.commons) if (!commonBlocks.has(c.id)) commonBlocks.set(c.id, c);
   }
+  errors.throwIfAny();
 
   const acfMap = {
-    // プロジェクト名。--project で明示できる。
-    // 省略時はモックの2つ上のディレクトリ名から導く（置き場所への仮定なので当てにならない。
-    // 実測: fixture を test/ 配下へ移しただけで .claude → ichiki に変わった）。
-    // 本来は .ichiki.json の project を見るべき。移設が済んだら直す。
+    // プロジェクト名。--project で明示できる（.ichiki.json の project を渡す）。
     project: projectName || path.basename(path.resolve(rootDir, '..', '..')),
-    generated_by: 'proposal/scan/scan.js (制約語彙版・推測なし)',
+    generated_by: 'ichiki scan（変換器のモデルから生成）',
     common: [...commonBlocks.values()],
     pages,
   };
 
-  // field-map.json: 宣言名がそのまま意味名なので恒等写像になる。
-  // 現行フローに存在する「機械命名 → 意味名のリネーム」工程が不要であることの証拠。
-  const fieldMap = {};
-  const collect = (fields, scope) => {
-    for (const f of fields) {
-      fieldMap[f.field_name] = { generated: f.field_name, semantic: f.field_name, scope };
-    }
-  };
-  for (const c of acfMap.common) collect(c.fields, `common:${c.id}`);
-  for (const p of pages) for (const s of p.sections) collect(s.fields, `${p.id}:${s.id}`);
-
-  // coverage
   const totals = Object.fromEntries(BUCKETS.map((b) => [b, 0]));
   let grandTotal = 0;
   for (const c of coverages) {
@@ -323,20 +194,20 @@ function main() {
 
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(path.join(outDir, 'acf-map.yaml'), yaml.dump(acfMap, { lineWidth: 120, noRefs: true }), 'utf8');
-  fs.writeFileSync(path.join(outDir, 'field-map.json'), JSON.stringify(fieldMap, null, 2), 'utf8');
   fs.writeFileSync(path.join(outDir, 'coverage.json'), JSON.stringify(coverage, null, 2), 'utf8');
 
-  // 案件用 CLAUDE.md。テンプレートが見つかるときだけ出す（本体から呼ばれた場合）。
   const tmplPath = path.join(__dirname, '..', 'templates', 'CLAUDE.md.tmpl');
   if (fs.existsSync(tmplPath)) {
     fs.writeFileSync(path.join(outDir, 'CLAUDE.md'), renderClaudeMd(acfMap, tmplPath), 'utf8');
   }
 
-  const fieldCount = Object.keys(fieldMap).length;
+  let fieldCount = 0;
+  for (const c of acfMap.common) fieldCount += c.fields.length;
+  for (const p of pages) for (const s of p.sections) fieldCount += s.fields.length;
+
   console.log('--- scan 結果 ---');
   console.log(`pages            : ${pages.length}`);
   console.log(`fields           : ${fieldCount}`);
-  console.log(`field-map        : 恒等写像 ${Object.values(fieldMap).every((v) => v.generated === v.semantic) ? 'YES（リネーム工程が不要）' : 'NO'}`);
   console.log('');
   console.log('--- テキスト取りこぼし検証 ---');
   console.log(`全テキストノード           : ${grandTotal}`);
@@ -357,8 +228,8 @@ function main() {
 try {
   main();
 } catch (err) {
-  if (err instanceof ScanError) {
-    console.error(`スキャンエラー（推測せず停止）: ${err.message}`);
+  if (err && err.isConversionError) {
+    console.error(`スキャンエラー（推測せず停止）:\n${err.message}`);
     process.exit(1);
   }
   throw err;
