@@ -52,12 +52,19 @@ function verifyTitles({ separator, siteName, pages, labelOf }, errors) {
       continue;
     }
     if (!p.title.endsWith(suffix)) {
+      // どちらが正かは決められない。**両方の直し方を出す。**
+      // モックが正なら .ichiki.json を直すのが1行で済む。
+      // 案件の体裁が正ならモックを直す。lint L32 がモック内の不揃いを先に捕まえるので、
+      // ここまで来るのは「モックは揃っているが設定と違う」場合が多い。
       errors.add(
         p.relPath,
         1,
-        `<title> が案件の区切り文字で終わっていません\n` +
-          `      期待する末尾: "${suffix}"（.ichiki.json の title_separator + トップの <title> から）\n` +
-          `      このページ  : "${p.title}"`
+        `<title> が .ichiki.json の title_separator と合いません\n` +
+          `      期待する末尾: "${suffix}"（title_separator ${JSON.stringify(separator)} + トップの <title> から）\n` +
+          `      このページ  : "${p.title}"\n` +
+          `      直し方はどちらか:\n` +
+          `        (a) モックの <title> を上の形に揃える\n` +
+          `        (b) .ichiki.json の title_separator を実際に使っている区切りに直す`
       );
       continue;
     }
