@@ -26,7 +26,13 @@ function loadPage(absPath, relPath) {
     return loc && loc.attrs && loc.attrs[attrName] ? loc.attrs[attrName] : null;
   }
 
-  return { absPath, relPath, html, $, locOf, lineOf, attrLoc };
+  // <title> は投稿タイトルになる（inc/seed-posts.php）。
+  // 読んでいなかったため、固定ページのタイトルが data-page-id そのもの
+  // （"contact" / "about_biodiversity"）になり、ブラウザのタブに内部識別子が出ていた。
+  // scan 側は同じことを src/scan.js で既にやっている（そちらが先に正しかった）。
+  const title = $('title').text().trim();
+
+  return { absPath, relPath, html, $, title, locOf, lineOf, attrLoc };
 }
 
 module.exports = { loadPage };

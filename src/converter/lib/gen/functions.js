@@ -48,10 +48,15 @@ function generateFunctionsPhp(model, errors) {
   for (const [cpt, entry] of model.cptMap) {
     const postType = `${CPT_PREFIX}${cpt}`;
     lines.push(`    register_post_type( ${phpSingleQuote(postType)}, array(`);
-    lines.push(`        'label' => ${phpSingleQuote(cpt)},`);
+    // ラベルは一覧ページの <title> から。CPT スラッグをそのまま出すと
+    // 管理画面のメニューにも一覧ページの <title> にも "center" と出る（実測）。
+    const cptLabel = (entry.archivePage && entry.archivePage.title) || cpt;
+    const labelExpr =
+      cptLabel === cpt ? phpSingleQuote(cpt) : `nkk_page_title( ${phpSingleQuote(cptLabel)} )`;
+    lines.push(`        'label' => ${labelExpr},`);
     lines.push("        'labels' => array(");
-    lines.push(`            'name' => ${phpSingleQuote(cpt)},`);
-    lines.push(`            'singular_name' => ${phpSingleQuote(cpt)},`);
+    lines.push(`            'name' => ${labelExpr},`);
+    lines.push(`            'singular_name' => ${labelExpr},`);
     lines.push('        ),');
     lines.push("        'public' => true,");
     // URL のスラッグは archive ページの場所から決まる。指定しないと投稿タイプ名
@@ -263,6 +268,25 @@ function generateFunctionsPhp(model, errors) {
   // 以前は functions.php と seed-menus.php に同じ str_replace が別々に書かれており、
   // 実測で片方（nkk_get_page_permalink）だけ変換を忘れていた。
   // その結果 wysiwyg 内のリンクが href="" になり、現在ページへ戻るリンクになっていた。
+  // モックの <title> は「ページ名 | サイト名」という**文書タイトル全体**。
+  // WordPress は投稿タイトルにサイト名を足して文書タイトルを作るので、
+  // そのまま使うとサイト名が二重になる（実測: "お問合せ | 北九州 – 北九州"）。
+  //
+  // サイト名は推測せず get_bloginfo('name') の実値と照合して落とす。
+  // 一致しなければ何もしない（勝手に切らない）。
+  // seed の投稿タイトルと CPT のラベルの両方が使う。**実装はここ1つ。**
+  lines.push('function nkk_page_title( $doc_title ) {');
+  lines.push("    $site = get_bloginfo( 'name' );");
+  lines.push("    if ( $site === '' ) { return $doc_title; }");
+  lines.push("    foreach ( array( ' | ', ' - ', ' – ' ) as $sep ) {");
+  lines.push('        $suffix = $sep . $site;');
+  lines.push('        if ( substr( $doc_title, -strlen( $suffix ) ) === $suffix ) {');
+  lines.push('            return substr( $doc_title, 0, -strlen( $suffix ) );');
+  lines.push('        }');
+  lines.push('    }');
+  lines.push('    return $doc_title;');
+  lines.push('}');
+  lines.push('');
   lines.push('function nkk_page_slug( $page_id ) {');
   lines.push("    return str_replace( '_', '-', (string) $page_id );");
   lines.push('}');

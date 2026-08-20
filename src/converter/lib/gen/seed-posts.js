@@ -137,7 +137,7 @@ function generateSeedPostsPhp(model) {
   L.push('    $post_id = wp_insert_post( array(');
   L.push("        'post_type'   => $post_type,");
   L.push("        'post_name'   => $slug,");
-  L.push("        'post_title'  => $title,");
+  L.push("        'post_title'  => nkk_page_title( $title ),");
   L.push("        'post_status' => 'publish',");
   L.push('    ) );');
   L.push('    if ( is_wp_error( $post_id ) ) { return array( 0, false ); }');
