@@ -117,6 +117,8 @@ function generateFooterPhp(model, errors) {
   lines.push('');
   lines.push(footerHtml);
   lines.push('');
+  // ここにページ末尾のスクリプトは入れない。footer.php は全ページ共通なので、
+  // 1ページぶんの処理を入れると全ページに配られる（header.php でパンくずを配った件と同じ形）。
   lines.push('<?php wp_footer(); ?>');
   lines.push('</body>');
   lines.push('</html>');
@@ -141,7 +143,17 @@ function generateCommonTemplateParts(model, errors) {
   return parts;
 }
 
-function wrapPageBody(templateNameComment, innerHtml) {
+// ページ内に直接書かれた <script>。**捨てない。**
+// モックでは </body> 直前に置かれていることが多いが、そこはどの領域にも属さないので
+// 何もしないと消える（実測: 地図と絞り込みが処理ごと落ちていた）。
+// ページテンプレートの末尾に置けば、そのページでだけ動く。
+function trailingScriptHtml(page) {
+  const list = (page && page.trailingScripts) || [];
+  if (!list.length) return '';
+  return list.map((code) => `<script>${code}</script>`).join('\n');
+}
+
+function wrapPageBody(templateNameComment, innerHtml, page) {
   const lines = [];
   lines.push('<?php');
   if (templateNameComment) {
@@ -152,6 +164,8 @@ function wrapPageBody(templateNameComment, innerHtml) {
   lines.push('get_header();');
   lines.push('?>');
   lines.push(innerHtml);
+  const tail = trailingScriptHtml(page);
+  if (tail) lines.push(tail);
   lines.push('<?php get_footer(); ?>');
   return lines.join('\n');
 }
@@ -162,7 +176,7 @@ function generateFrontPageTemplate(model, errors) {
     return null;
   }
   const html = renderFragment(model.front, model, model.front.mainEl, false, errors);
-  return { filename: 'front-page.php', content: wrapPageBody(null, html) };
+  return { filename: 'front-page.php', content: wrapPageBody(null, html, model.front) };
 }
 
 // data-common="header" を宣言していないページ（= 自前シェル）は get_header()/get_footer()
@@ -215,6 +229,8 @@ function wrapOwnShellPage(model, page, pageId, innerHtml, errors) {
   lines.push('');
   lines.push(footerHtml);
   lines.push('');
+  const tail = trailingScriptHtml(page);
+  if (tail) { lines.push(tail); lines.push(''); }
   lines.push('<?php wp_footer(); ?>');
   lines.push('</body>');
   lines.push('</html>');
@@ -228,7 +244,7 @@ function generatePageTemplates(model, errors) {
     const html = renderFragment(page, model, page.mainEl, false, errors);
     const content = page.ownsShell
       ? wrapOwnShellPage(model, page, pageId, html, errors)
-      : wrapPageBody(pageId, html);
+      : wrapPageBody(pageId, html, page);
     out.push({ filename: `page-${pageId}.php`, content });
   }
   return out;
@@ -263,7 +279,7 @@ function generateCptTemplates(model, errors) {
     // 簡易シェルなのに、生成物はナビ付きの通常ページになっていた（実測: header__back-link /
     // footer--minimal / apply-wrap など8つの class が出力に存在しなかった）。
     const wrap = (p, html) =>
-      p.ownsShell ? wrapOwnShellPage(model, p, null, html, errors) : wrapPageBody(null, html);
+      p.ownsShell ? wrapOwnShellPage(model, p, null, html, errors) : wrapPageBody(null, html, p);
 
     if (entry.archivePage) {
       const html = renderFragment(entry.archivePage, model, entry.archivePage.mainEl, false, errors);

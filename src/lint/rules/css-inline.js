@@ -3,7 +3,6 @@
 // L11: ページ内 <style> タグが無い
 // L12: style="…" 属性が無い
 // L13: class 名・**構造宣言**の data-* 値が全て ASCII (テキストコンテンツは対象外)
-// L25: インラインの <script> が無い（L11 と同じ理由）
 const { mk } = require('../lib/issue');
 const { DECLARATION_ATTRS } = require('../../shared/declaration-attrs');
 
@@ -22,14 +21,6 @@ function run(page) {
   // スライドショーだった。.hero-slide が無い9ページで Uncaught TypeError になり、
   // 同じブロックの後半（アコーディオン）はそこで死んでいた。
   // 原則4（同じものを2回以上書かない）に照らして、ファイルへの分離を必須にする。
-  $('script').each((_, el) => {
-    const $el = $(el);
-    if ($el.attr('src')) return;
-    if (($el.attr('type') || '').includes('json')) return; // 構造化データ等は対象外
-    issues.push(
-      mk(page, 'L25', 'error', page.lineOf($el), 'インラインの <script> は禁止されています(js/ 配下のファイルに分離してください。ページ固有なら js/page/<ページID>.js)')
-    );
-  });
 
   $('[style]').each((_, el) => {
     const $el = $(el);

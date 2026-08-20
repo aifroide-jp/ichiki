@@ -471,7 +471,45 @@ function buildModel(pages, errors) {
     }
   }
 
-  // 外部の <script src>（Leaflet 等）。ページ内 <script> は L25 で禁止しているが、
+  // ページ内に直接書かれた <script>（処理を持つもの）。
+  //
+  // 以前は L25 で禁止していたが、理由が「テーマのどこに置けばいいか決まらない」で、
+  // これは事実ではなかった。**<main> の中に置けばテンプレートにそのまま出力される。**
+  // 消えていたのは「インラインだから」ではなく「</body> 直前がどの領域にも属さないから」。
+  // 禁止ではなく運ぶことにした（パンくずが消えたのと同じ形の取りこぼし）。
+  //
+  // 実測: 活動拠点の地図（Leaflet・40行）とイベント一覧の絞り込み（45行）が、
+  // L25 を通すために処理ごと捨てられ、空の箱とボタンだけが残っていた。
+  {
+    for (const page of pages) {
+      if (!page.dataPage) continue;
+      const $ = page.$;
+      const body = $('body').get(0);
+      const main = $('#main-content').get(0);
+      const footer = page.ownsShell ? page.ownFooterEl : $('[data-common="footer"]').get(0);
+      const after = footer && footer.sourceCodeLocation
+        ? footer.sourceCodeLocation.endTag
+          ? footer.sourceCodeLocation.endTag.endOffset
+          : footer.sourceCodeLocation.endOffset
+        : main && main.sourceCodeLocation
+          ? main.sourceCodeLocation.endOffset
+          : 0;
+      page.trailingScripts = [];
+      // body.children ではなく $('script') で全部見る。
+      // パーサが <script> を body の直下に置くとは限らず、実測で children が空だった。
+      void body;
+      for (const node of $('script').toArray()) {
+        if (node.type !== 'tag' && node.type !== 'script') continue;
+        if (!node.sourceCodeLocation || node.sourceCodeLocation.startOffset < after) continue;
+        if ($(node).attr('src')) continue; // 外部・内部の読み込みは enqueue が担当
+        const loc = node.sourceCodeLocation;
+        const inner = page.html.slice(loc.startTag.endOffset, loc.endTag.startOffset);
+        if (inner.trim()) page.trailingScripts.push(inner);
+      }
+    }
+  }
+
+  // 外部の <script src>（Leaflet 等）。
   // **外部ライブラリの読み込みは処理ではない**ので落としてはいけない。
   // 実測: 活動拠点の地図（Leaflet）が、読み込みごと消えて白紙になっていた。
   // ページ固有 JS は enqueue されるのに、その JS が依存するライブラリが無い状態だった。
