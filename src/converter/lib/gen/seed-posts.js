@@ -21,11 +21,31 @@
 const { phpSingleQuote } = require('../php-util');
 const { CPT_PREFIX } = require('../constants');
 
-// image 型は URL 文字列では入らない（ACF は添付ファイル ID を持つ）。
-// sideload まで踏み込むと別の判断が要るので、ここでは飛ばして
-// テンプレート側のフォールバック（assets/ のモック画像）に任せる。
+// image 型は URL 文字列では入らない（ACF は添付ファイル ID を持つ）ので、
+// テーマの assets/ にある画像をメディアライブラリへ登録してから ID を入れる。
+//
+// 登録しないとどうなるか（実測）:
+//   画面には出る（テンプレのフォールバックが assets/ を直接指すため）が、
+//   **メディアライブラリが空**で ACF の画像欄も空。
+//   お客様が管理画面から差し替えようとしても、選ぶ元が存在しない。
+//   検収で「画像を差し替えてみてください」ができない状態だった。
 function seedableFields(fields) {
   return (fields || []).filter((f) => f.type !== 'image' && f.defaultValue !== null && f.defaultValue !== undefined);
+}
+
+function imageFields(fields) {
+  return (fields || []).filter((f) => f.type === 'image' && f.asset);
+}
+
+function imageAssignments(scopeSlug, fields, indent) {
+  const L = [];
+  for (const f of imageFields(fields)) {
+    const key = `field_${scopeSlug}_${f.name}`;
+    L.push(
+      `${indent}nkk_seed_set_image( $post_id, '${key}', ${phpSingleQuote(f.asset)}, ${phpSingleQuote(f.alt || '')} );`
+    );
+  }
+  return L;
 }
 
 function fieldAssignments(scopeSlug, fields, indent) {
@@ -39,6 +59,7 @@ function fieldAssignments(scopeSlug, fields, indent) {
         : phpSingleQuote(String(f.defaultValue));
     L.push(`${indent}update_field( '${key}', ${value}, $post_id );`);
   }
+  L.push(...imageAssignments(scopeSlug, fields, indent));
   return L;
 }
 
@@ -54,6 +75,57 @@ function generateSeedPostsPhp(model) {
   L.push("if ( ! defined( 'ABSPATH' ) ) { exit; }");
   L.push('');
   L.push('// 同じスラッグの投稿があればその ID、無ければ作って ID を返す。');
+  // テーマの assets/ にある画像をメディアライブラリへ登録し、ACF の画像欄に入れる。
+  //
+  // 同じファイルを二度登録しない。判定はファイル名ではなく **_nkk_asset**（assets からの
+  // 相対パス）で行う。ファイル名だけだと別ディレクトリの同名画像を取り違える
+  // （実測: 2025/03 と 2026/04 に同名の jpg がある）。
+  L.push('function nkk_seed_attach_asset( $rel, $alt = \'\' ) {');
+  L.push("    $found = get_posts( array(");
+  L.push("        'post_type'   => 'attachment',");
+  L.push("        'post_status' => 'inherit',");
+  L.push("        'numberposts' => 1,");
+  L.push("        'meta_key'    => '_nkk_asset',");
+  L.push("        'meta_value'  => $rel,");
+  L.push('    ) );');
+  L.push('    if ( $found ) { return (int) $found[0]->ID; }');
+  L.push('');
+  L.push("    $src = trailingslashit( get_template_directory() ) . 'assets/' . $rel;");
+  L.push('    if ( ! file_exists( $src ) ) { return 0; }');
+  L.push('');
+  L.push("    require_once ABSPATH . 'wp-admin/includes/file.php';");
+  L.push("    require_once ABSPATH . 'wp-admin/includes/media.php';");
+  L.push("    require_once ABSPATH . 'wp-admin/includes/image.php';");
+  L.push('');
+  // アップロード先へコピーしてから登録する。テーマ内のファイルを直接指すと、
+  // テーマを消したときにメディアが壊れる。
+  L.push('    $up = wp_upload_dir();');
+  L.push("    $dst_rel = 'nkk/' . $rel;");
+  L.push("    $dst = trailingslashit( $up['basedir'] ) . $dst_rel;");
+  L.push('    wp_mkdir_p( dirname( $dst ) );');
+  L.push('    if ( ! copy( $src, $dst ) ) { return 0; }');
+  L.push('');
+  L.push('    $type = wp_check_filetype( $dst );');
+  L.push('    $id = wp_insert_attachment( array(');
+  L.push("        'post_mime_type' => $type['type'],");
+  L.push("        'post_title'     => sanitize_file_name( basename( $rel ) ),");
+  L.push("        'post_status'    => 'inherit',");
+  L.push('    ), $dst );');
+  L.push('    if ( is_wp_error( $id ) || ! $id ) { return 0; }');
+  L.push('');
+  L.push('    wp_update_attachment_metadata( $id, wp_generate_attachment_metadata( $id, $dst ) );');
+  L.push("    update_post_meta( $id, '_nkk_asset', $rel );");
+  L.push("    if ( $alt !== '' ) { update_post_meta( $id, '_wp_attachment_image_alt', $alt ); }");
+  L.push('    return (int) $id;');
+  L.push('}');
+  L.push('');
+  L.push('function nkk_seed_set_image( $post_id, $field_key, $rel, $alt ) {');
+  // 既に値が入っていれば触らない。お客様が差し替えたものを上書きしないため。
+  L.push('    if ( get_field( $field_key, $post_id ) ) { return; }');
+  L.push('    $id = nkk_seed_attach_asset( $rel, $alt );');
+  L.push('    if ( $id ) { update_field( $field_key, $id, $post_id ); }');
+  L.push('}');
+  L.push('');
   L.push('function nkk_seed_get_or_create( $post_type, $slug, $title, $template = null ) {');
   L.push('    $existing = get_posts( array(');
   L.push("        'post_type'   => $post_type,");
@@ -105,6 +177,49 @@ function generateSeedPostsPhp(model) {
     );
     L.push('    if ( $post_id && $created ) {');
     L.push(...fieldAssignments(cpt, entry.fields, '        '));
+    L.push('    }');
+    L.push('');
+  }
+
+  // --- 2.5 トップページ ---
+  //
+  // front のフィールドは「フロントページに設定された固定ページ」に紐づく
+  // （group_front の location が page_type == front_page）。
+  // その受け皿を作って show_on_front を設定しないと、**値を保存する先が存在しない**。
+  // 実測: front-page.php はテンプレート階層で優先されるので画面は出るが、
+  // 画像9枚を含む70フィールドがどこにも入らず、管理画面から編集もできなかった。
+  if (model.front && model.front.ownFields && model.front.ownFields.length) {
+    L.push('    // トップページ（front のフィールドの受け皿）');
+    L.push(
+      `    list( $post_id, $created ) = nkk_seed_get_or_create( 'page', 'front', ${phpSingleQuote(model.front.title || 'トップページ')} );`
+    );
+    L.push('    if ( $post_id ) {');
+    L.push("        update_option( 'show_on_front', 'page' );");
+    L.push("        update_option( 'page_on_front', $post_id );");
+    L.push('    }');
+    L.push('    if ( $post_id && $created ) {');
+    L.push(...fieldAssignments('front', model.front.ownFields, '        '));
+    L.push('    }');
+    L.push('');
+  }
+
+  // --- 2.6 CPT 一覧ページ独自のフィールド ---
+  //
+  // archive のフィールドは **archive-<cpt>.php をテンプレートに設定した固定ページ**に紐づく
+  // （acf.js の location が page_template == archive-nkk_xxx.php）。
+  // ACF 無料版にオプションページは無いので 'option' には保存できない。
+  // 受け皿の固定ページが無いと、値の置き場所が存在しない。
+  for (const [cpt, entry] of model.cptMap) {
+    const af = entry.archiveFields || [];
+    if (!af.length) continue;
+    const tmpl = `archive-${CPT_PREFIX}${cpt}.php`;
+    const slug = `${cpt}-archive-settings`;
+    L.push(`    // CPT 一覧の独自フィールドの受け皿: ${cpt}`);
+    L.push(
+      `    list( $post_id, $created ) = nkk_seed_get_or_create( 'page', ${phpSingleQuote(slug)}, ${phpSingleQuote(`${cpt} 一覧の設定`)}, ${phpSingleQuote(tmpl)} );`
+    );
+    L.push('    if ( $post_id && $created ) {');
+    L.push(...fieldAssignments(`${cpt}_archive`, af, '        '));
     L.push('    }');
     L.push('');
   }

@@ -125,8 +125,22 @@ function acfKey(scopeSlug, name) {
   return `field_${scopeSlug || '__NO_SCOPE__'}_${name}`;
 }
 
+// 値の保存先。site_options と <cpt>_archive のフィールドは、
+// 表示中の投稿ではなく**専用の受け皿ページ**に保存される（acf.js の location 参照）。
+// 第2引数を渡さないと ACF は「表示中の投稿」を見るので、そこには値が無い。
+//
+// 文字列フィールドは default_value があるので、ID を渡さなくても**それらしく表示される**。
+// だが image 型は default_value を持てないので false になる。
+// 実測: ロゴと一覧ページのヒーローだけが assets/ のフォールバックのままで、
+// 管理画面で画像を設定しても画面に反映されなかった。文言が出ているので気づきにくい。
+function ownerExpr(scopeSlug) {
+  if (scopeSlug === 'site_options') return ', nkk_get_site_options_page_id()';
+  if (/_archive$/.test(scopeSlug || '')) return `, nkk_get_archive_settings_page_id('${scopeSlug}')`;
+  return '';
+}
+
 function phpFieldOutput(name, scopeSlug) {
-  return `<?php the_field('${acfKey(scopeSlug, name)}'); ?>`;
+  return `<?php the_field('${acfKey(scopeSlug, name)}'${ownerExpr(scopeSlug)}); ?>`;
 }
 
 // 要素1個から ACF フィールドと編集内容を抽出する。
@@ -161,7 +175,6 @@ function analyzeField(page, $, el, opts, errors) {
         errors.add(page.relPath, line, `data-acf="${name}": <img> に src がありません`);
         return results;
       }
-      results.fields.push({ name, type: 'image', defaultValue: null });
       const varUrl = `$${name}_url`;
       const varAlt = `$${name}_alt`;
       // src はページ階層に応じた相対パス（../ や ../../ を含む）。
@@ -169,10 +182,18 @@ function analyzeField(page, $, el, opts, errors) {
       // 以前は先頭の "images/" を付け直すだけで ../ を無視しており、
       //   深さ1: assets/images/../images/x.jpg  → URL正規化で偶然通っていた
       //   深さ2: assets/images/../../images/x.jpg → **サイトルート /images/x.jpg** に落ちて壊れていた
-      const fallbackUrl = `get_template_directory_uri() . '/assets/${normalizeAttrValue(src, page.relPath)}'`;
+      const assetPath = normalizeAttrValue(src, page.relPath);
+      const fallbackUrl = `get_template_directory_uri() . '/assets/${assetPath}'`;
       const fallbackAlt = JSON.stringify(alt || '').replace(/"/g, "'");
+
+      // 画像の在り処を残す。ACF の image 型は添付ファイル ID を要求するので
+      // defaultValue には入れられないが、**seed がメディアへ登録するのに要る**。
+      // 残していなかったため、seed が画像を飛ばし、メディアライブラリが空のまま
+      // テンプレのフォールバックだけで表示されていた。
+      // その状態だとお客様が管理画面から画像を差し替えられない（選ぶ元が無い）。
+      results.fields.push({ name, type: 'image', defaultValue: null, asset: assetPath, alt: alt || '' });
       const phpBlock =
-        `<?php $${name} = get_field('${acfKey(opts && opts.scopeSlug, name)}'); ` +
+        `<?php $${name} = get_field('${acfKey(opts && opts.scopeSlug, name)}'${ownerExpr(opts && opts.scopeSlug)}); ` +
         `${varUrl} = $${name} ? $${name}['url'] : ${fallbackUrl}; ` +
         `${varAlt} = $${name} ? $${name}['alt'] : ${fallbackAlt}; ?>\n`;
       results.edits.push({ start: loc.startOffset, end: loc.startOffset, replacement: phpBlock });
@@ -296,7 +317,7 @@ function analyzeField(page, $, el, opts, errors) {
     results.edits.push({
       start: loc.startOffset,
       end: loc.startOffset,
-      replacement: `<?php ${varName} = get_field('${acfKey(opts && opts.scopeSlug, urlName)}'); ?>`,
+      replacement: `<?php ${varName} = get_field('${acfKey(opts && opts.scopeSlug, urlName)}'${ownerExpr(opts && opts.scopeSlug)}); ?>`,
     });
     results.edits.push({
       start: hrefLoc.startOffset,
