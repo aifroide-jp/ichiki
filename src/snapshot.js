@@ -37,7 +37,7 @@ if (!MOCKUP || !EXPECTED) {
 }
 
 // assets（画像・CSS・JS）は中身を凍結しない。41MB あり、リポジトリが重くなる。
-// **画像が落ちたかどうかは visual-check / visual-diff の差異率で分かる**ので、
+// **画像が落ちたかどうかは ichiki diff の差異率で分かる**ので、
 // ここではファイルの有無とサイズだけ見る（消えた・入れ替わったは検出できる）。
 const CONTENT_SKIP = /(^|\/)assets\//;
 

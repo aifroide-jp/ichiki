@@ -6,7 +6,6 @@
 //   node proposal/gate.js [mockupDir] [オプション]
 //
 //     --allow-unresolved-links  未解決の内部リンクを警告に落として変換を続行する
-//     --visual                  ピクセル比較も実行する（遅いので既定では走らせない）
 //     --snapshot <expected.json> 出力の凍結と突き合わせる（案件側の期待値ファイル）
 //
 // 個々のツールは README.md の「ゲート一覧」に説明がある。ここはその順番を固定するだけで、
@@ -28,7 +27,6 @@ const ROOT = path.join(__dirname, '..');   // Ichiki のルート
 const SRC = __dirname;
 const argv = process.argv.slice(2);
 const allowUnresolved = argv.includes('--allow-unresolved-links');
-const withVisual = argv.includes('--visual');
 // 値を取るオプションの値を、位置引数と取り違えない。
 // 実測: --snapshot の値がモックのパスとして拾われ、期待値ファイルをスキャンしていた。
 const VALUE_OPTS = new Set(['--snapshot']);
@@ -49,7 +47,7 @@ const CONF = config();
 const mockupDir = positional[0] || CONF.mockup || null;
 if (!mockupDir) {
   console.error('モックの場所が分かりません。引数で渡すか、.ichiki.json に mockup を書いてください。');
-  console.error('使い方: ichiki gate [mockupDir] [--allow-unresolved-links] [--visual] [--snapshot <json>]');
+  console.error('使い方: ichiki gate [mockupDir] [--allow-unresolved-links] [--snapshot <json>]');
   process.exit(2);
 }
 
@@ -133,10 +131,15 @@ if (snapshotPath) {
 // 7. PHP の構文（php が無い環境ではスキップし、スキップした旨を必ず出す）
 step('php -l', null, null, { php: true });
 
-// 8. 見た目（既定では走らせない。--visual で有効化）
-if (withVisual) {
-  step('ピクセル比較', 'node', [path.join(SRC, 'visual', 'compare.js')], { blocking: false });
-}
+// ピクセル比較は gate に入れない。
+//
+// **合意前のモックは見た目が変わるのが正しい。** お客様に見せて直す工程が何周も回る。
+// そこへ旧モックとのピクセル比較を毎回かけると、正しい変更が毎回 FAIL になる。
+// 見た目の固定が要るのは retrofit（宣言を後付けする局面）だけなので、
+// そのときに `ichiki diff` を明示的に叩く。
+//
+// 実際、以前は --visual で compare.js を引数なしで呼んでいて**常に失敗していた**。
+// blocking:false だったので gate は続行し、誰も気づかないまま残っていた。
 
 function runPhpLint() {
   const probe = spawnSync('php', ['-v'], { encoding: 'utf8' });
@@ -220,7 +223,6 @@ function main() {
 
   if (failures.length === 0) {
     console.log(`全ゲート通過。生成テーマ: ${themeDir}`);
-    if (!withVisual) console.log('※ ピクセル比較は未実行です（--visual で実行）。');
     process.exit(0);
   }
 

@@ -1,5 +1,5 @@
 'use strict';
-// `ichiki diff:wp` が出したレポートを「読むだけ」。未実行なら常に null（再実行はしない）。
+// `ichiki diff` が出したレポートを「読むだけ」。未実行なら常に null（再実行はしない）。
 //
 // パスは案件側にあるので引数で受け取る。かつては本体からの相対で
 // scripts/visual-diff/{pages.js, report/index.html} を直接指していたが、
@@ -12,7 +12,7 @@ const path = require('path');
 const ROW_RE = /<tr>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<td>(?:<span[^>]*>([\d.]+)%<\/span>|<span[^>]*>skip<\/span>)<\/td>/g;
 
 // pagesPath : 比較対象の一覧（案件側の JSON。[{ label, mockup, wp }, …]）
-// reportPath: diff:wp の出力（<出力先>/index.html）
+// reportPath: diff の出力（<出力先>/index.html）
 function readVisualDiffReport(pagesPath, reportPath) {
   if (!pagesPath || !reportPath || !fs.existsSync(pagesPath) || !fs.existsSync(reportPath)) {
     return { getResult: () => null };

@@ -118,13 +118,13 @@ ichiki gate <mockup>
   // 検収成果物の出力先・形式。書かなければ既定
   "testspec": {
     "out_dir": "docs/検収",
-    "visual_pages": "visual/pages.json",     // diff:wp の比較対象一覧
-    "visual_report": "visual/report"          // diff:wp の出力先
+    "visual_pages": "visual/pages.json",     // diff の比較対象一覧
+    "visual_report": "visual/report"          // diff の出力先
   }
 }
 ```
 
-`testspec.visual_*` を書くと、C1 に `ichiki diff:wp` の差異率が入る。
+`testspec.visual_*` を書くと、C1 に `ichiki diff` の差異率が入る。
 **書かなければ「未実行」と明記される**（自動 OK 扱いにはしない）。
 
 `ichiki_version` を書いておくと、本体とのバージョン違いを警告する。

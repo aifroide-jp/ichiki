@@ -22,10 +22,16 @@ const pixelmatch   = require('pixelmatch');
 
 // ── 設定 ────────────────────────────────────────────────────────────
 // 案件ごとに違うものは全部引数で受ける。
-//   node src/visual/diff.js <モックルート> <pages.json> <WPのURL> [出力先] [--mobile|--both|--only=…]
+//   node src/visual/diff.js <モックルート> <pages.json> <比較先URL> [出力先] [--mobile|--both|--only=…]
+//
+// 比較先は URL であればよい。WordPress でも、`ichiki serve` で配った旧モックでもよい。
+//   WP と比べる   : ichiki diff <モック> <pages.json> http://localhost:10009
+//   旧モックと比べる: ichiki serve . 18081 & ichiki diff <モック> <pages.json> http://localhost:18081
+// 以前は後者専用に compare.js があったが、比較先が URL かローカルパスかの違いしかなく、
+// ページ一覧はハードコード・pairs.json は読まれずに放置されていたので統合した。
 const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 if (cliArgs.length < 3) {
-  console.error('使い方: node src/visual/diff.js <モックルート> <pages.json> <WPのURL> [出力先]');
+  console.error('使い方: node src/visual/diff.js <モックルート> <pages.json> <比較先URL> [出力先]');
   process.exit(2);
 }
 const MOCKUP_ROOT = path.resolve(cliArgs[0]);
@@ -35,6 +41,15 @@ const MOCKUP_PORT = 18080;
 const MOCKUP_BASE = `http://localhost:${MOCKUP_PORT}`;
 const REPORT_DIR  = path.resolve(cliArgs[3] || path.join(process.cwd(), 'visual-diff-report'));
 const THRESHOLD   = 0.1;   // pixelmatch 許容誤差 (0〜1)
+
+// 案件固有の撮影前 CSS（.ichiki.json の visual.freeze_css）。
+// スライドショーの1枚目を必ず出す等、案件のマークアップに依存する調整をここに書く。
+const { readConfig } = require('../shared/project-config');
+const EXTRA_FREEZE_CSS = (() => {
+  const { conf } = readConfig(MOCKUP_ROOT);
+  const v = (conf.visual && conf.visual.freeze_css) || '';
+  return Array.isArray(v) ? v.join('\n') : String(v);
+})();
 
 const args    = process.argv.slice(2);
 const MOBILE  = args.includes('--mobile');
@@ -86,19 +101,30 @@ async function scrollToLoadLazy(page) {
 }
 
 // ── 時間差で結果が揺れる要素を撮影前に固定する ───────────────────────
+// 撮影前に「時間で動くもの」を止める。
+// 見た目の等価性を見たいのであって、タイミングを見たいのではない。
+//
+// 案件固有の class 名（.hero-slide 等）はここに書かない。**設定から渡す。**
+// 焼き込んでいた頃は、別案件で使うと効かないうえに、
+// 何が案件固有で何が汎用かがコードを読まないと分からなかった。
+const FREEZE_CSS = `
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+`;
+
 async function freezeForScreenshot(page) {
-  await page.addStyleTag({
-    content: `
-      *, *::before, *::after {
-        animation-play-state: paused !important;
-        transition: none !important;
-      }
-      .header { position: static !important; }
-      .facilities-track { animation: none !important; transform: translateX(0) !important; }
-      .hero-slide { transition: none !important; opacity: 0 !important; }
-      .hero-slide:first-child { opacity: 1 !important; }
-    `,
-  }).catch(() => {});
+  await page.addStyleTag({ content: FREEZE_CSS + EXTRA_FREEZE_CSS }).catch(() => {});
+  await page
+    .evaluate(() => {
+      // JS のタイマーで進むスライドショーは CSS では止まらない。
+      // 止めないと、2枚のスクショで別のスライドが写って差分だらけになる。
+      for (let i = 1; i < 10000; i++) window.clearInterval(i);
+      // 遅延読み込みを全部読ませる（fullPage 撮影でも下部が空のまま写ることがある）
+      document.querySelectorAll('img[loading="lazy"]').forEach((im) => im.setAttribute('loading', 'eager'));
+    })
+    .catch(() => {});
 }
 
 // ── スクリーンショット取得 ──────────────────────────────────────────

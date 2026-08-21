@@ -34,7 +34,7 @@
 ## ③ 実装の移植性（他Ichiki案件で使い回す場合の注意）
 
 - CPT判定・グルーピングは `inc/seed-posts.php` の `$pages` 配列と `nkk_seed_post()` 呼び出しを正規表現でパースして行っている。この配列名・関数名は rules/ichiki.md の固定契約ではなく、本案件のPhase1実装がたまたまその形だっただけ。他案件で書き方が違えば、パースは黙って空配列を返し、ページ種別判定が崩れる（クラッシュはしないが誤判定になる）
-- `lib/checks/visual-diff.js` は `ichiki diff:wp` が出すレポートの形式に依存。無い場合は全ページ「visual-diff未実行」として安全に縮退する（比較対象の一覧はかつて `scripts/visual-diff/pages.js` に手書きしていたが、案件側の JSON に移した）
+- `lib/checks/visual-diff.js` は `ichiki diff` が出すレポートの形式に依存。無い場合は全ページ「visual-diff未実行」として安全に縮退する（比較対象の一覧はかつて `scripts/visual-diff/pages.js` に手書きしていたが、案件側の JSON に移した）
 - `.ichiki.json` の `site_url` はLocal環境の実体とズレやすい（2026-08-06に実際に発生）。Localは `.local` ドメインとサイト固有の直接ポート（例: `http://localhost:10004`）を両方割り当てるが、`.local` ドメインがLocal側のルーターに正しく登録されていないと接続失敗になる。`site_url` を設定・変更する時は、対象URLに実際にHTTPで疎通できる（かつ`wp-json`のリンクヘッダーがそのURLで返る＝WordPress自身の`siteurl`と一致している）ことを毎回確認すること
 
 ## 根本原因メモ
