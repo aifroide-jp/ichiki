@@ -124,12 +124,17 @@ step('フィールド突合', 'node', [path.join(SRC, 'verify', 'coverage.js'), 
 step('構造忠実性', 'node', [path.join(SRC, 'verify', 'structure.js'), mockupDir, themeDir]);
 
 // 6.5 出力の凍結（回帰ハーネス）
-// 移設・リファクタで出力が変わったら、どのファイルが変わったかを名指しで出す。
+// 出力が変わったら、どのファイルが変わったかを名指しで出す。
 // **意図した変更なら --update で凍結し直す。**黙って通さない。
-// 凍結の期待値は案件側にある（案件ごとに中身が違う）。--snapshot で場所を渡す。
+//
+// 当初は移設中だけの道具のつもりだったが、**リバース中の安全網**として要る。
+// 実測: 12ページのモックに13ページ目を足すと、増えるのはそのページの3ファイルだけで、
+// 既存12ページのテンプレートと ACF は1つも変わらなかった。
+// 変わるのは集約ファイル（functions.php / seed-*.php / retrofit-notice.php）のみ。
+// つまり「既存ページが動いたら事故」という信号が取れる。残り39ページで39回効く。
+//
+// 期待値は案件側にある（案件ごとに中身が違う）。--snapshot で場所を渡す。
 // 渡されなければこのステップは飛ばす（初回や、まだ凍結していない案件のため）。
-// 凍結は移設中の道具で、要否は未決（proposal/DIFF-vs-ichiki.md 6.2節）。
-// .ichiki.json には書かせない。使うときだけ --snapshot で明示する。
 const snapArg = argv.indexOf('--snapshot');
 const snapshotPath = snapArg >= 0 ? argv[snapArg + 1] : null;
 if (snapshotPath) {
