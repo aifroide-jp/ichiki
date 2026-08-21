@@ -12,10 +12,9 @@
 // 設定（.ichiki.json の title_separator）との一致は変換器が別に見る。二段構え。
 
 const { mk } = require('../lib/issue');
-
-// 区切り候補。前後に半角空白のある形だけを対象にする
-// （WordPress が区切りを空白で囲んで結合するため、空白の無い形は再現できない）。
-const SEPARATORS = [' | ', ' - ', ' – ', ' — ', ' / ', ' ｜ ', ' » '];
+// 区切りの割り出しは shared/site-title.js が唯一の実装。scan が同じ関数で
+// .ichiki.json に書き込むので、lint が通ったモックと設定は定義上一致する。
+const { deriveTitleSuffix } = require('../../shared/site-title');
 
 function titleOf(page) {
   return page.$('title').first().text().trim();
@@ -36,32 +35,16 @@ function run(pages) {
   const others = withTitle.filter((p) => p !== front);
   if (others.length < 2) return issues;
 
-  // 区切りとサイト名を「モック内の一致」で決める。
-  // 各ページの <title> の**最後の区切り以降**が末尾。全ページで同じはず。
-  // 共通接尾辞を取る方式だと " - サイト名" と " | サイト名" が
-  // " サイト名" で一致してしまい、どのページが違うのか言えなかった。
-  const groups = new Map(); // 末尾 -> [page]
-  for (const p of others) {
-    const t = titleOf(p);
-    let at = -1;
-    let sepFound = '';
-    for (const x of SEPARATORS) {
-      const i = t.lastIndexOf(x);
-      if (i > at) { at = i; sepFound = x; }
-    }
-    const ending = at < 0 ? '（区切りなし）' : t.slice(at);
-    if (!groups.has(ending)) groups.set(ending, { pages: [], sep: sepFound });
-    groups.get(ending).pages.push(p);
-  }
+  // 区切りとサイト名を割り出す（共有実装）。
+  const derived = deriveTitleSuffix(others.map((p) => ({ relPath: p.relPath, title: titleOf(p), page: p })));
 
-  if (groups.size > 1) {
-    const lines = [...groups.entries()]
-      .sort((a, b) => b[1].pages.length - a[1].pages.length)
-      .map(([ending, g]) => {
-        const names = g.pages.slice(0, 3).map((x) => x.relPath).join(', ');
-        const more = g.pages.length > 3 ? ` ほか${g.pages.length - 3}件` : '';
-        return `      ${JSON.stringify(ending)}  ${g.pages.length}ページ (${names}${more})`;
-      });
+  if (!derived.ok && derived.groups.length > 1) {
+    const lines = derived.groups.map((g) => {
+      const names = g.pages.slice(0, 3).map((x) => x.relPath).join(', ');
+      const more = g.pages.length > 3 ? ` ほか${g.pages.length - 3}件` : '';
+      const label = g.ending === null ? '（区切りなし）' : JSON.stringify(g.ending);
+      return `      ${label}  ${g.pages.length}ページ (${names}${more})`;
+    });
     issues.push(
       mk(others[0], 'L32', 'error', 1,
         '全ページの <title> の末尾が揃っていません（1.2節）。\n' +
@@ -70,10 +53,7 @@ function run(pages) {
     );
     return issues;
   }
-
-  const [suffix, g0] = [...groups.entries()][0];
-  const sep = g0.sep;
-  if (!sep) {
+  if (!derived.ok) {
     issues.push(
       mk(others[0], 'L32', 'error', 1,
         '<title> に区切り文字がありません（1.2節）。\n' +
@@ -81,7 +61,7 @@ function run(pages) {
     );
     return issues;
   }
-  const siteName = suffix.slice(sep.length);
+  const { separator: sep, siteName, suffix } = derived;
 
   // 一覧ページの名前（中間区画に使える文字）を集める
   const archiveLabel = new Map(); // cpt -> 一覧ページ名

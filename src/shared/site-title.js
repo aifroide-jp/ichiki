@@ -23,6 +23,53 @@
 //   既定値を置いても推測にならない。モックがその区切りで書かれているかを
 //   verifyTitles() が毎回検査し、違えば停止する。
 
+// 区切り候補。前後に半角空白のある形だけを対象にする
+// （WordPress が区切りを空白で囲んで結合するため、空白の無い形は再現できない）。
+const SEPARATORS = [' | ', ' - ', ' – ', ' — ', ' / ', ' ｜ ', ' » '];
+
+// モックの <title> 群から「区切り + サイト名」を割り出す。**唯一の実装。**
+// lint L32（モック内の一貫性）と scan（.ichiki.json への書き込み）が使う。
+//
+// 各ページの <title> の**最後の区切り以降**が末尾で、全ページで同じはず。
+// 共通接尾辞を取る方式だと " - サイト名" と " | サイト名" が " サイト名" で
+// 一致してしまい、どのページが外れているか言えなかった。
+//
+// 戻り値:
+//   { ok: true,  separator, siteName, suffix }        全ページ揃っている
+//   { ok: false, groups: [{ ending, pages }] }        揃っていない（呼び手が報告する）
+//   { ok: false, groups: [], reason: 'no-separator' } 区切りが見つからない
+function deriveTitleSuffix(entries) {
+  // entries: [{ relPath, title }] トップは除いて渡すこと
+  const groups = new Map();
+  for (const e of entries) {
+    let at = -1;
+    let sep = '';
+    for (const x of SEPARATORS) {
+      const i = e.title.lastIndexOf(x);
+      if (i > at) { at = i; sep = x; }
+    }
+    const ending = at < 0 ? null : e.title.slice(at);
+    const key = ending === null ? '\u0000none' : ending;
+    if (!groups.has(key)) groups.set(key, { ending, sep, pages: [] });
+    groups.get(key).pages.push(e);
+  }
+  if (groups.size === 0) return { ok: false, groups: [], reason: 'no-pages' };
+  if (groups.size > 1) {
+    return {
+      ok: false,
+      groups: [...groups.values()].sort((a, b) => b.pages.length - a.pages.length),
+    };
+  }
+  const only = [...groups.values()][0];
+  if (!only.ending) return { ok: false, groups: [], reason: 'no-separator' };
+  return {
+    ok: true,
+    separator: only.sep,
+    siteName: only.ending.slice(only.sep.length),
+    suffix: only.ending,
+  };
+}
+
 // 既定の区切り文字。案件ごとに .ichiki.json の title_separator で上書きする。
 // **既定値を置いても推測にならない。** モックがこの区切りで書かれているかを
 // verifyTitles() が毎回検査し、違えば名指しで停止するため。
@@ -114,4 +161,4 @@ function ownTitlePart({ title, separator, siteName, label }) {
   return title;
 }
 
-module.exports = { DEFAULT_SEPARATOR, splitFrontTitle, verifyTitles, ownTitlePart };
+module.exports = { SEPARATORS, deriveTitleSuffix, DEFAULT_SEPARATOR, splitFrontTitle, verifyTitles, ownTitlePart };

@@ -41,6 +41,20 @@ if (!MOCKUP || !EXPECTED) {
 // ここではファイルの有無とサイズだけ見る（消えた・入れ替わったは検出できる）。
 const CONTENT_SKIP = /(^|\/)assets\//;
 
+// 中身は見るが、**日付など毎回変わる箇所は伏せてから**ハッシュを取る。
+// 伏せないと、コードを1行も触っていない翌日に凍結が落ちる（実測で落ちた）。
+// 回帰ハーネスが日付で落ちると、本当の差分が埋もれて誰も見なくなる。
+const VOLATILE = [
+  // 案件用 CLAUDE.md の生成日（templates/CLAUDE.md.tmpl の {{GENERATED}}）
+  [/generated: \d{4}-\d{2}-\d{2}/g, 'generated: <date>'],
+];
+
+function normalize(buf) {
+  let t = buf.toString('utf8');
+  for (const [re, to] of VOLATILE) t = t.replace(re, to);
+  return Buffer.from(t, 'utf8');
+}
+
 function sha(buf) {
   return crypto.createHash('sha256').update(buf).digest('hex').slice(0, 16);
 }
@@ -58,7 +72,7 @@ function manifestOf(dir) {
   const m = {};
   for (const rel of walk(dir)) {
     const buf = fs.readFileSync(path.join(dir, rel));
-    m[rel] = CONTENT_SKIP.test(rel) ? `size:${buf.length}` : sha(buf);
+    m[rel] = CONTENT_SKIP.test(rel) ? `size:${buf.length}` : sha(normalize(buf));
   }
   return m;
 }

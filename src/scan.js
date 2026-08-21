@@ -36,7 +36,7 @@ const { loadPage } = require('./converter/lib/load-page');
 const { ErrorCollector } = require('./converter/lib/errors');
 const { buildModel, collectFieldsIn } = require('./converter/lib/model');
 const { readConfig, writeConfig, FILENAME } = require('./shared/project-config');
-const { DEFAULT_SEPARATOR } = require('./shared/site-title');
+const { DEFAULT_SEPARATOR, deriveTitleSuffix } = require('./shared/site-title');
 
 function pageIdFromFile(rel) {
   let id = rel.replace(/\.html$/i, '');
@@ -128,9 +128,23 @@ function renderClaudeMd(acfMap, tmplPath) {
     .replace(/\{\{PAGES\}\}/g, pageLines);
 }
 
+// モックの <title> から区切り文字を採る。トップは形が違う（サイト名 + 区切り + タグライン）ので外す。
+function separatorFromMockup(pages) {
+  const entries = [];
+  for (const p of pages) {
+    const dataPage = p.$('body').attr('data-page');
+    if (!dataPage || dataPage === 'front') continue;
+    const t = p.title;
+    if (t) entries.push({ relPath: p.relPath, title: t });
+  }
+  if (entries.length < 2) return null;
+  const d = deriveTitleSuffix(entries);
+  return d.ok ? d.separator : null;
+}
+
 // .ichiki.json を用意する。**既にある値は書き換えない。**
 // 上書きすると theme_dir / site_url のような環境依存の設定を壊す。
-function ensureProjectConfig(confPath, conf, rootDir, projectName, model) {
+function ensureProjectConfig(confPath, conf, rootDir, projectName, model, titleSeparator) {
   const target = confPath || path.join(process.cwd(), FILENAME);
   const before = JSON.stringify(conf);
   const next = { ...conf };
@@ -145,10 +159,14 @@ function ensureProjectConfig(confPath, conf, rootDir, projectName, model) {
   if (next.theme_dir === undefined) { next.theme_dir = ''; added.push('theme_dir: （未設定。書いてください）'); }
   if (next.site_url === undefined) { next.site_url = ''; added.push('site_url: （未設定。書いてください）'); }
   if (next.title_separator === undefined) {
-    // 既定値を入れる。**推測ではない。** モックがこの区切りで書かれているかは
-    // 変換時に全ページ検査し、違えば名指しで停止する。
-    next.title_separator = DEFAULT_SEPARATOR;
-    added.push(`title_separator: ${JSON.stringify(DEFAULT_SEPARATOR)}`);
+    // モックから採った値（採れなければ既定）。**推測ではない。**
+    // 全ページが同じ末尾であることが割り出しの前提で、揃っていなければ lint L32 が落とす。
+    // 書いたあとも変換のたびに全ページ検査するので、静かにズレることはない。
+    next.title_separator = titleSeparator;
+    added.push(
+      `title_separator: ${JSON.stringify(titleSeparator)}` +
+        (titleSeparator === DEFAULT_SEPARATOR ? '' : '（モックの <title> から）')
+    );
   }
   if (!next.ichiki_version) {
     try {
@@ -190,7 +208,12 @@ function main() {
   errors.allowUnresolvedLinks = allowUnresolvedLinks;
   const loaded = files.map((f) => loadPage(f.abs, f.rel));
   const { path: confPath, conf } = readConfig(rootDir);
-  const model = buildModel(loaded, errors, { titleSeparator: conf.title_separator });
+  // 区切り文字は設定が正。**無ければモックから採る。**
+  // 既定値を機械的に書くと、モックが別の区切りで書かれていた場合に
+  // 「変換が止まる → 設定を1行直す → もう一度回す」という無駄な往復が生まれる。
+  // 割り出しは lint L32 と同じ関数なので、lint が通ったモックなら必ず一致する。
+  const titleSeparator = conf.title_separator || separatorFromMockup(loaded) || DEFAULT_SEPARATOR;
+  const model = buildModel(loaded, errors, { titleSeparator });
   errors.throwIfAny();
 
   const pages = [];
@@ -241,7 +264,7 @@ function main() {
   // 案件設定（.ichiki.json）を用意する。
   // 無ければ作り、title_separator が無ければ足す。人が JSON を手打ちする場面を消す。
   // theme_dir と site_url は環境依存なので埋められない。空で出して doctor に任せる。
-  ensureProjectConfig(confPath, conf, rootDir, acfMap.project, model);
+  ensureProjectConfig(confPath, conf, rootDir, acfMap.project, model, titleSeparator);
 
   const tmplPath = path.join(__dirname, '..', 'templates', 'CLAUDE.md.tmpl');
   if (fs.existsSync(tmplPath)) {
