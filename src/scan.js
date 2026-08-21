@@ -204,10 +204,11 @@ function main() {
     process.exit(2);
   }
 
-  const errors = new ErrorCollector();
-  errors.allowUnresolvedLinks = allowUnresolvedLinks;
-  const loaded = files.map((f) => loadPage(f.abs, f.rel));
   const { path: confPath, conf } = readConfig(rootDir);
+  const errors = new ErrorCollector();
+  // retrofit 宣言があれば未解決リンクを許す（変換器と同じ規則）
+  errors.allowUnresolvedLinks = allowUnresolvedLinks || !!conf.retrofit;
+  const loaded = files.map((f) => loadPage(f.abs, f.rel));
   // 区切り文字は設定が正。**無ければモックから採る。**
   // 既定値を機械的に書くと、モックが別の区切りで書かれていた場合に
   // 「変換が止まる → 設定を1行直す → もう一度回す」という無駄な往復が生まれる。

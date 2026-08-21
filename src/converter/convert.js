@@ -55,6 +55,32 @@ function collectPageFields(model, page) {
   return out;
 }
 
+// リバース途中であることを管理画面に出す PHP。
+// .ichiki.json の retrofit 宣言がある間だけ生成される。
+function generateRetrofitNotice(retrofit, unresolvedCount) {
+  const q = (v) => "'" + String(v == null ? '' : v).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+  const note = retrofit.note || '';
+  return [
+    '<?php',
+    '/**',
+    ' * リバース（既存モックの制約語彙化）が途中であることの表示。',
+    ' * .ichiki.json の retrofit 宣言から生成される。宣言を消せばこのファイルも出なくなる。',
+    ' */',
+    "if ( ! defined( 'ABSPATH' ) ) { exit; }",
+    '',
+    "add_action( 'admin_notices', function () {",
+    "    if ( ! current_user_can( 'edit_posts' ) ) { return; }",
+    "    echo '<div class=\"notice notice-warning\"><p><strong>このテーマは変換途中のモックから生成されています。</strong></p>';",
+    `    echo '<p>` + '未解決の内部リンク: ' + `' . ${unresolvedCount} . '件（リンク先のページがまだモックにありません）</p>';`,
+    note ? `    echo '<p>' . esc_html( ${q(note)} ) . '</p>';` : '',
+    "    echo '<p>すべてのページを変換したら .ichiki.json の retrofit を消して再変換してください。この表示も消えます。</p></div>';",
+    '} );',
+    '',
+  ]
+    .filter((l) => l !== '')
+    .join('\n');
+}
+
 function main() {
   const argv = process.argv.slice(2);
   // --allow-unresolved-links: 未解決の内部リンクをエラーではなく警告にする。
@@ -88,15 +114,21 @@ function main() {
   }
 
   const pages = files.map((f) => loadPage(f.abs, f.rel));
+
+  // 案件の設定を先に読む。未解決リンクを許すかどうかがここで決まるため。
+  // retrofit 宣言（リバース途中）があれば、変換していないページへのリンクは
+  // 必ず出るので警告に落とす。フラグを毎回書かせない（rules/ichiki.md）。
+  const { conf } = readConfig(mockupDir);
+  const retrofit = conf.retrofit || null;
+
   const errors = new ErrorCollector();
-  errors.allowUnresolvedLinks = allowUnresolvedLinks;
+  errors.allowUnresolvedLinks = allowUnresolvedLinks || !!retrofit;
 
   let model;
   const outputFiles = new Map(); // relPath -> content
 
   try {
     // `<title>` の区切り文字は案件の設定（.ichiki.json）。既定は " | "。
-    const { conf } = readConfig(mockupDir);
     model = buildModel(pages, errors, { titleSeparator: conf.title_separator });
 
     if (acfMapPath) {
@@ -188,6 +220,23 @@ function main() {
       process.exit(1);
     }
     throw e;
+  }
+
+  // --- リバース途中なら、その事実をテーマ自身に持たせる ---
+  //
+  // 変換は止めない。**少数のページで先に WP まで通すのは正しい順序**で、
+  // 実測でも変換器の欠陥（フィールド突合の素通り・画像がメディアに入らない・
+  // <title>・CF7 の死にフィールド）は12ページの WP 化で見つかった。
+  // 51ページ変換し終わるまで待っていたら、全部あとで直すことになる。
+  //
+  // 一方で「WP サイトが出ると完成に見える」のは本当なので、
+  // **管理画面を開いた人の目に必ず入る場所**に未完了であることを出す。
+  // 宣言を消せば消えるので、消し忘れたまま納品する形にはならない。
+  if (retrofit) {
+    const unresolved = errors.warnings.filter((w) => /解決できません/.test(w.message)).length;
+    outputFiles.set('inc/retrofit-notice.php', generateRetrofitNotice(retrofit, unresolved));
+    const fns = outputFiles.get('functions.php');
+    outputFiles.set('functions.php', fns + "\nrequire_once get_template_directory() . '/inc/retrofit-notice.php';\n");
   }
 
   // --- ここまでエラー無し。ファイルを書き出す(全部成功するまでテーマを書き出さない) ---
