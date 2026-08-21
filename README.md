@@ -118,8 +118,7 @@ ichiki gate <mockup>
   // 検収成果物の出力先・形式。書かなければ既定
   "testspec": {
     "out_dir": "docs/検収",
-    "visual_pages": "visual/pages.json",     // diff の比較対象一覧
-    "visual_report": "visual/report"          // diff の出力先
+        "visual_report": "visual/report"         // diff の出力先
   }
 }
 ```

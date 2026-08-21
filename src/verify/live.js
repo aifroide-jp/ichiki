@@ -21,6 +21,7 @@
 const fs = require('fs');
 const path = require('path');
 const cheerio = require('cheerio');
+const { archiveSlugOf, expandUrls: expandUrlsShared } = require('../shared/site-urls');
 
 const ROOT = __dirname;
 const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
@@ -53,10 +54,6 @@ function findHtml(root) {
 }
 
 // archive ページの場所が CPT の URL スラッグになる（converter/lib/gen/functions.js と同じ規則）
-function archiveSlugOf(relPath) {
-  return relPath.replace(/\.html$/, '').replace(/(^|\/)index$/, '').replace(/\/$/, '');
-}
-
 async function getJson(url) {
   try {
     const r = await fetch(url);
@@ -136,56 +133,9 @@ function readMockup() {
 }
 
 // --- 期待 URL を導く（single は投稿の数だけ増える） -------------------------
-async function expandUrls(pages) {
-  const archiveSlug = {};
-  for (const p of pages) if (p.kind === 'archive') archiveSlug[p.cpt] = archiveSlugOf(p.rel);
-
-  // 固定ページの URL は**実サイトのパーマリンクを見る**。モックのパスから組み立てない。
-  //
-  // 実測: about/biodiversity.html は page_id が about_biodiversity になり、
-  // スラッグは about-biodiversity（階層が畳まれる）。モックのパスから
-  // /about/biodiversity/ を期待すると 404 になるが、**サイト内のリンクは
-  // パーマリンク経由なので壊れていない**。検査だけが誤検出していた。
-  const pageSlugs = new Set();
-  {
-    const j = await getJson(`${SITE}/wp-json/wp/v2/pages?per_page=100`);
-    if (Array.isArray(j)) for (const x of j) pageSlugs.add(x.slug);
-  }
-  // data-page-id → WordPress のスラッグ（seed-posts.php と同じ規則）
-  const slugOfPageId = (id) => String(id || '').replace(/_/g, '-');
-
-  const postsOf = {};
-  for (const cpt of new Set(pages.filter((p) => p.cpt).map((p) => p.cpt))) {
-    const j = await getJson(`${SITE}/wp-json/wp/v2/nkk_${cpt}?per_page=100`);
-    postsOf[cpt] = Array.isArray(j) ? j.map((x) => x.slug) : [];
-  }
-
-  const targets = [];
-  for (const p of pages) {
-    if (p.kind === 'front') targets.push({ url: '/', page: p });
-    else if (p.kind === 'page') {
-      const slug = slugOfPageId(p.pageId);
-      if (slug && !pageSlugs.has(slug)) {
-        bad(`/${slug}/`, 'page-missing', `data-page-id="${p.pageId}" の固定ページが実サイトにありません`);
-        continue;
-      }
-      targets.push({ url: `/${slug}/`, page: p });
-    }
-    else if (p.kind === 'archive') targets.push({ url: `/${archiveSlug[p.cpt]}/`, page: p });
-    else if (p.kind === 'single') {
-      const base = archiveSlug[p.cpt];
-      if (!base) {
-        bad('(model)', 'no-archive', `data-cpt="${p.cpt}" の archive ページが無く、URL を導けません`);
-        continue;
-      }
-      const slugs = postsOf[p.cpt] || [];
-      if (slugs.length === 0) bad('(model)', 'no-post', `nkk_${p.cpt} の投稿が1件もありません`);
-      for (const s of slugs) {
-        targets.push({ url: `/${base}/${s}/${p.variant ? p.variant + '/' : ''}`, page: p });
-      }
-    }
-  }
-  return targets;
+// 実装は shared/site-urls.js。ピクセル比較（ichiki diff）も同じ関数を使う。
+function expandUrls(pages) {
+  return expandUrlsShared(pages, SITE, getJson, (kind, msg, url) => bad(url, kind, msg));
 }
 
 const navReported = new Set();

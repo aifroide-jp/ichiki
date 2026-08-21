@@ -24,7 +24,7 @@ const COMMANDS = [
   ['verify:structure', [SRC, 'verify', 'structure.js'],'<mockup> <theme>',                             'モックの class が生成物に残っているか'],
   ['verify:live', [SRC, 'verify', 'live.js'],          '<mockup> <URL>',                               '公開後のサイトを取得して突き合わせる'],
   ['snapshot',    [SRC, 'snapshot.js'],                '<mockup> <expected.json> [--update]',          '出力を凍結し、変わったら落とす'],
-  ['diff',        [SRC, 'visual', 'diff.js'],          '<モックルート> <pages.json> <比較先URL> [出力先]', 'モック ↔ 比較先URL のピクセル比較（WP でも旧モックでも）'],
+  ['diff',        [SRC, 'visual', 'diff.js'],          '<モックルート> <比較先URL> [出力先]', 'モック ↔ 比較先URL のピクセル比較（WP でも旧モックでも）'],
   ['diff:crop',   [SRC, 'visual', 'crop.js'],          '<ラベル> [y] [高さ]',                           '差分の塊を一覧／位置指定で切り出す'],
   ['testspec',    [SRC, 'testspec', 'generate.js'],    '[案件ルート]',                                  'C1 テスト仕様書 / C3 検収シート / C3付録'],
   ['pa11yci',     [SRC, 'testspec', 'gen-pa11yci.js'], '[案件ルート]',                                  '.pa11yci.json を生成'],

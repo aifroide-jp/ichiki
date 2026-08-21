@@ -17,29 +17,29 @@ const fs          = require('fs');
 const { chromium } = require('playwright');
 const serveHandler = require('serve-handler');
 const { PNG }      = require('pngjs');
+const { expandUrls } = require('../shared/site-urls');
 const pixelmatch   = require('pixelmatch');
 
 
 // ── 設定 ────────────────────────────────────────────────────────────
 // 案件ごとに違うものは全部引数で受ける。
-//   node src/visual/diff.js <モックルート> <pages.json> <比較先URL> [出力先] [--mobile|--both|--only=…]
+//   node src/visual/diff.js <モックルート> <比較先URL> [出力先] [--mobile|--both|--only=…]
 //
 // 比較先は URL であればよい。WordPress でも、`ichiki serve` で配った旧モックでもよい。
-//   WP と比べる   : ichiki diff <モック> <pages.json> http://localhost:10009
-//   旧モックと比べる: ichiki serve . 18081 & ichiki diff <モック> <pages.json> http://localhost:18081
+//   WP と比べる     : ichiki diff <モック> http://localhost:10009
+//   旧モックと比べる: ichiki serve . 18081 & ichiki diff <モック> http://localhost:18081
 // 以前は後者専用に compare.js があったが、比較先が URL かローカルパスかの違いしかなく、
 // ページ一覧はハードコード・pairs.json は読まれずに放置されていたので統合した。
 const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
-if (cliArgs.length < 3) {
-  console.error('使い方: node src/visual/diff.js <モックルート> <pages.json> <比較先URL> [出力先]');
+if (cliArgs.length < 2) {
+  console.error('使い方: node src/visual/diff.js <モックルート> <比較先URL> [出力先]');
   process.exit(2);
 }
 const MOCKUP_ROOT = path.resolve(cliArgs[0]);
-const PAGES       = JSON.parse(fs.readFileSync(path.resolve(cliArgs[1]), 'utf8'));
-const WP_BASE     = cliArgs[2].replace(/\/$/, '');
+const WP_BASE     = cliArgs[1].replace(/\/$/, '');
 const MOCKUP_PORT = 18080;
 const MOCKUP_BASE = `http://localhost:${MOCKUP_PORT}`;
-const REPORT_DIR  = path.resolve(cliArgs[3] || path.join(process.cwd(), 'visual-diff-report'));
+const REPORT_DIR  = path.resolve(cliArgs[2] || path.join(process.cwd(), 'visual-diff-report'));
 const THRESHOLD   = 0.1;   // pixelmatch 許容誤差 (0〜1)
 
 // 案件固有の撮影前 CSS（.ichiki.json の visual.freeze_css）。
@@ -57,9 +57,14 @@ const BOTH    = args.includes('--both');
 const DESKTOP = !MOBILE || BOTH;
 const ONLY    = (args.find(a => a.startsWith('--only=')) || '').slice('--only='.length);
 const ONLY_LABELS  = ONLY ? ONLY.split(',').map(s => s.trim()).filter(Boolean) : [];
-const TARGET_PAGES = ONLY_LABELS.length
-  ? PAGES.filter(p => ONLY_LABELS.some(label => p.label.includes(label)))
-  : PAGES;
+// ページ一覧は**モックから導く**。手書きの一覧は取りこぼす
+// （実測: pairs.json は12ページ中6ページしか並べておらず、
+//  残り6ページの差分が誰にも見えていなかった）。
+// 比較先が WordPress なら、URL はパーマリンクを REST で引く（shared/site-urls.js）。
+// verify:live と同じ関数なので、両者が見るページ集合は定義上一致する。
+function filterOnly(pages) {
+  return ONLY_LABELS.length ? pages.filter((p) => ONLY_LABELS.some((l) => p.label.includes(l))) : pages;
+}
 
 const VIEWPORTS = [
   ...(DESKTOP ? [{ name: 'desktop', width: 1280, height: 900 }] : []),
@@ -232,12 +237,93 @@ tr:hover td { background: #f9f9f9; }
   console.log(`\n✅ レポート: ${outPath}`);
 }
 
+// モックを読んで比較対象を作る。
+//   WordPress が相手  → パーマリンクを REST で引く（verify:live と同じ関数）
+//   モックが相手      → 同じ相対パス（retrofit の前後比較）。
+//                       片側にしか無いページは、まだ変換していないページなので数えて報告する
+async function buildPages() {
+  const mockPages = readMockupPages(MOCKUP_ROOT);
+  const isWp = await fetchJson(`${WP_BASE}/wp-json/wp/v2/pages?per_page=1`).then(
+    (j) => Array.isArray(j),
+    () => false
+  );
+
+  if (isWp) {
+    const targets = await expandUrls(mockPages, WP_BASE, fetchJson, (kind, msg) =>
+      console.warn(`  [skip] ${msg}`)
+    );
+    return targets.map((t) => ({
+      label: t.url === '/' ? 'front' : t.url.replace(/^\/|\/$/g, ''),
+      mockup: t.page.rel,
+      wp: t.url,
+    }));
+  }
+
+  // 相手もモック。パスが同じものだけ比べる。
+  const out = [];
+  const missing = [];
+  for (const p of mockPages) {
+    const ok = await fetchStatus(`${WP_BASE}/${p.rel}`);
+    if (ok) out.push({ label: p.rel.replace(/\.html$/, ''), mockup: p.rel, wp: `/${p.rel}` });
+    else missing.push(p.rel);
+  }
+  if (missing.length) {
+    console.log(`  ※ 比較先に無いページ ${missing.length}件（未変換）: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ' …' : ''}`);
+  }
+  return out;
+}
+
+function readMockupPages(root) {
+  const cheerio = require('cheerio');
+  const out = [];
+  const walk = (d) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const f = path.join(d, e.name);
+      if (e.isDirectory()) { if (e.name !== 'node_modules') walk(f); continue; }
+      if (!e.name.endsWith('.html')) continue;
+      const rel = path.relative(root, f).split(path.sep).join('/');
+      const $ = cheerio.load(fs.readFileSync(f, 'utf8'));
+      const b = $('body');
+      const kind = b.attr('data-page');
+      if (!kind) continue;
+      out.push({ rel, kind, cpt: b.attr('data-cpt') || null, pageId: b.attr('data-page-id') || null, variant: b.attr('data-page-variant') || null });
+    }
+  };
+  walk(root);
+  return out.sort((a, b) => a.rel.localeCompare(b.rel));
+}
+
+function fetchJson(url) {
+  return new Promise((resolve, reject) => {
+    const mod = url.startsWith('https') ? require('https') : http;
+    mod.get(url, (res) => {
+      let d = '';
+      res.on('data', (c) => (d += c));
+      res.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { reject(e); } });
+    }).on('error', reject);
+  });
+}
+
+function fetchStatus(url) {
+  return new Promise((resolve) => {
+    const mod = url.startsWith('https') ? require('https') : http;
+    mod.get(url, (res) => { res.resume(); resolve(res.statusCode >= 200 && res.statusCode < 400); }).on('error', () => resolve(false));
+  });
+}
+
 // ── メイン ────────────────────────────────────────────────────────
 (async () => {
   fs.mkdirSync(REPORT_DIR, { recursive: true });
 
   const server  = await startMockupServer();
   const browser = await chromium.launch();
+
+  const TARGET_PAGES = filterOnly(await buildPages());
+  console.log(`比較対象: ${TARGET_PAGES.length}ページ`);
+  // 比較した対象を出力側に残す。testspec が「モックのどのページがどのラベルか」を
+  // 引くのに要る。以前は案件側に手書きの pages.json を置いて**入力**にしていたが、
+  // 手書きゆえに取りこぼした（12ページ中6ページしか並んでいなかった）。
+  fs.writeFileSync(path.join(REPORT_DIR, 'pages.json'), JSON.stringify(TARGET_PAGES, null, 2));
 
   const results = [];
 

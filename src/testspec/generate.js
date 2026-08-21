@@ -44,8 +44,9 @@ async function main() {
   const a11yMap = readA11yReport(A11Y_REPORT_PATH);
   // 見た目の比較結果。場所は .ichiki.json の testspec 節で指定する。
   // 書かなければ「未実行」として縮退する（自動 OK 扱いにはしない）。
+  // 対応表は diff が出力側に置く（<出力先>/pages.json）。案件側に手書きさせない。
   const visualDiff = readVisualDiffReport(
-    TS.visual_pages ? path.resolve(REPO_ROOT, TS.visual_pages) : null,
+    TS.visual_report ? path.resolve(REPO_ROOT, TS.visual_report, 'pages.json') : null,
     TS.visual_report ? path.resolve(REPO_ROOT, TS.visual_report, 'index.html') : null
   );
 
