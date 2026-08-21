@@ -279,7 +279,13 @@ function readMockupPages(root) {
   const walk = (d) => {
     for (const e of fs.readdirSync(d, { withFileTypes: true })) {
       const f = path.join(d, e.name);
-      if (e.isDirectory()) { if (e.name !== 'node_modules') walk(f); continue; }
+      // 隠しディレクトリを飛ばすのは discover.js と同じ規則。
+      // 飛ばさないと .claude/ichiki/test/fixture の HTML まで比較対象に入る。
+      // リバース前のモック（.ichiki/mockup-before）もここで自動的に外れる。
+      if (e.isDirectory()) {
+        if (e.name !== 'node_modules' && !e.name.startsWith('.')) walk(f);
+        continue;
+      }
       if (!e.name.endsWith('.html')) continue;
       const rel = path.relative(root, f).split(path.sep).join('/');
       const $ = cheerio.load(fs.readFileSync(f, 'utf8'));

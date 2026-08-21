@@ -35,15 +35,19 @@
 リバース前のモックは記録として残すが、置き場所と名前を固定する。
 
 ```
-/（ルート）        いまのモック。お客様と合意するもの
-mockup-before/     リバース前のモック。記録用
+/（ルート）              いまのモック。お客様と合意するもの
+.ichiki/mockup-before/   リバース前のモック。記録用
 ```
 
-- `mockup-before/` は**一時的なもの**。検収が終わったら消す
-- 見た目が変わっていないことの確認は、これを配信して比べる
+- **`.ichiki/` の下に置く。** ルートに置くとモックの一部として走査され、
+  未変換ページで lint が大量に落ちる。隠しディレクトリは走査から外れる
+  （`converter/lib/discover.js`）ので、除外の設定が要らない
+- ドット始まりでも Windows のエクスプローラでは見える。VSCode も既定で見える。
+  macOS の Finder だけが隠すが、比較は `ichiki diff` が出すレポートを見るので困らない
+- **一時的なもの**。検収が終わったら消す
 
 ```bash
-ichiki serve mockup-before 18081
+ichiki serve .ichiki/mockup-before 18081
 ichiki diff . http://localhost:18081
 ```
 
@@ -68,7 +72,7 @@ git のコミットから取り出す方法もあるが、**標準の手順に�
 
 ```jsonc
 "retrofit": {
-  "before": "./",              // 変換前のモックの場所
+  "before": ".ichiki/mockup-before",   // 変換前のモックの場所
   "note": "51ページ中12ページ変換済み"
 }
 ```
