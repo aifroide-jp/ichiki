@@ -26,7 +26,13 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');   // Ichiki のルート
 const SRC = __dirname;
 const argv = process.argv.slice(2);
-const allowUnresolved = argv.includes('--allow-unresolved-links');
+// 未解決リンクを警告に落とすかどうか。
+// フラグでも指定できるが、**リバース途中なら宣言から導く**。
+// 変換していないページへのリンクは途中である以上必ず出るので、
+// 毎回手で付けさせるのは意味がない。付け忘れて落ちるのも、
+// 惰性で付け続けて本当の不具合を見逃すのも避けたい。
+// 宣言から来た場合も、下で必ず警告文を出す（黙って許さない）。
+const allowUnresolvedFlag = argv.includes('--allow-unresolved-links');
 // 値を取るオプションの値を、位置引数と取り違えない。
 // 実測: --snapshot の値がモックのパスとして拾われ、期待値ファイルをスキャンしていた。
 const VALUE_OPTS = new Set(['--snapshot']);
@@ -44,6 +50,8 @@ function config() {
   }
 }
 const CONF = config();
+const RETROFIT = CONF.retrofit || null;
+const allowUnresolved = allowUnresolvedFlag || !!RETROFIT;
 const mockupDir = positional[0] || CONF.mockup || null;
 if (!mockupDir) {
   console.error('モックの場所が分かりません。引数で渡すか、.ichiki.json に mockup を書いてください。');
@@ -167,7 +175,11 @@ function runPhpLint() {
 function main() {
   console.log(`対象: ${mockupDir}`);
   if (allowUnresolved) {
-    console.log('※ --allow-unresolved-links: 未解決の内部リンクを警告に落としています。');
+    console.log(
+      RETROFIT && !allowUnresolvedFlag
+        ? '※ .ichiki.json の retrofit 宣言により、未解決の内部リンクを警告に落としています。'
+        : '※ --allow-unresolved-links: 未解決の内部リンクを警告に落としています。'
+    );
     console.log('   本番案件では使わないこと（モック＝全ページなので未解決＝不具合）。');
   }
   console.log('');

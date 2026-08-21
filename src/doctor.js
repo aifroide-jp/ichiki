@@ -70,6 +70,34 @@ if (conf) {
   for (const k of ['theme_dir', 'site_url']) {
     if (!conf[k]) ng(`.ichiki.json の ${k} が空`, '環境に合わせて書いてください（scan は埋められません）');
   }
+  // リバース途中の宣言。規約（rules/ichiki.md「モックの置き場所」）から外れた配置を
+  // 宣言された逸脱として扱う。**残件を数字で出す**。書いたまま忘れられるのが一番まずい。
+  if (conf.retrofit) {
+    const beforeDir = path.resolve(ROOT, conf.retrofit.before || '.');
+    const mockDir = path.resolve(ROOT, conf.mockup || '.');
+    const count = (d) => {
+      let n = 0;
+      const walk = (x) => {
+        if (!fs.existsSync(x)) return;
+        for (const e of fs.readdirSync(x, { withFileTypes: true })) {
+          if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+          const f = path.join(x, e.name);
+          if (e.isDirectory()) { if (f !== mockDir) walk(f); }
+          else if (e.name.endsWith('.html')) n++;
+        }
+      };
+      walk(d);
+      return n;
+    };
+    const before = count(beforeDir);
+    const after = count(mockDir);
+    notes.push(
+      `リバース途中（.ichiki.json の retrofit 宣言）: 変換前 ${before}ページ / 変換済み ${after}ページ` +
+        (conf.retrofit.note ? `\n     ${conf.retrofit.note}` : '') +
+        '\n     この間だけ未解決リンクが許され、モックの置き場所も規約から外れてよい。' +
+        '\n     終わったら retrofit を消し、モックをルートへ移すこと。'
+    );
+  }
   if (!conf.title_separator) {
     notes.push('.ichiki.json に title_separator が無い（既定 " | " で扱う。scan を回すと書き込まれる）');
   } else if (conf.title_separator !== ` ${String(conf.title_separator).trim()} `) {

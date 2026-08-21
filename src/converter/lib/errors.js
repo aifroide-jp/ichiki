@@ -39,7 +39,7 @@ class ErrorCollector {
     for (const w of this.warnings) lines.push(`  ${w.file}:${w.line}  ${w.message}`);
     if (this.allowUnresolvedLinks) {
       lines.push('');
-      lines.push('  ※ --allow-unresolved-links を渡しています。未解決リンクを警告に落としています。');
+      lines.push('  ※ 未解決リンクを警告に落としています（--allow-unresolved-links / .ichiki.json の retrofit 宣言）。');
       lines.push('     行き先の無いリンクがテーマに残ります。全ページが揃ったら必ず外してください。');
     }
     return lines.join('\n');

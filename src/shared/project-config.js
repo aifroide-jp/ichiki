@@ -5,6 +5,14 @@
 // モックの構造ではなく「案件の体裁・環境」を持つ。
 //   project / mockup / theme_dir / site_url / ichiki_version / plugins_required
 //   title_separator ← `<title>` の区切り文字（ページごとに変わらないのでここ）
+//   retrofit        ← リバース途中であることの宣言（下記）
+//
+// retrofit（既存モックを制約語彙に変換している最中だけ書く）:
+//   { "before": "<変換前のモックの場所>", "note": "<状況>" }
+//   これがあると規約（rules/ichiki.md「モックの置き場所」）から外れた配置を
+//   **宣言された逸脱**として扱える。書かずに外れていると、ただの事故と区別が付かない。
+//   未解決リンクを許すのもこの宣言に紐づく（変換していないページへのリンクは
+//   途中である以上必ず出るため）。
 
 const fs = require('fs');
 const path = require('path');
@@ -43,6 +51,7 @@ const ORDER = [
   'theme_dir',
   'site_url',
   'title_separator',
+  'retrofit',
   'plugins_required',
   'ichiki_version',
 ];
