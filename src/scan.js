@@ -35,7 +35,7 @@ const { findHtmlFiles } = require('./converter/lib/discover');
 const { loadPage } = require('./converter/lib/load-page');
 const { ErrorCollector } = require('./converter/lib/errors');
 const { buildModel, collectFieldsIn } = require('./converter/lib/model');
-const { readConfig, writeConfig, FILENAME } = require('./shared/project-config');
+const { readConfig, writeConfig, FILENAME, DEFAULT_BEFORE_DIR, DEFAULT_PLUGINS } = require('./shared/project-config');
 const { DEFAULT_SEPARATOR, deriveTitleSuffix } = require('./shared/site-title');
 
 function pageIdFromFile(rel) {
@@ -144,7 +144,7 @@ function separatorFromMockup(pages) {
 
 // .ichiki.json を用意する。**既にある値は書き換えない。**
 // 上書きすると theme_dir / site_url のような環境依存の設定を壊す。
-function ensureProjectConfig(confPath, conf, rootDir, projectName, model, titleSeparator) {
+function ensureProjectConfig(confPath, conf, rootDir, projectName, model, titleSeparator, beforeDir) {
   const target = confPath || path.join(process.cwd(), FILENAME);
   const before = JSON.stringify(conf);
   const next = { ...conf };
@@ -167,6 +167,16 @@ function ensureProjectConfig(confPath, conf, rootDir, projectName, model, titleS
       `title_separator: ${JSON.stringify(titleSeparator)}` +
         (titleSeparator === DEFAULT_SEPARATOR ? '' : '（モックの <title> から）')
     );
+  }
+  if (!next.retrofit && beforeDir) {
+    // リバース前のモックが実在するので、状態を宣言として書き出す。
+    // 消し忘れると未解決リンクが許され続けるので、doctor が毎回言う。
+    next.retrofit = { before: beforeDir, note: 'リバース途中。変換し終えたらこの節ごと消す' };
+    added.push(`retrofit.before: ${beforeDir}（リバース前のモックがあるため）`);
+  }
+  if (!next.plugins_required) {
+    next.plugins_required = [...DEFAULT_PLUGINS];
+    added.push('plugins_required: 規約の必須プラグイン');
   }
   if (!next.ichiki_version) {
     try {
@@ -205,9 +215,16 @@ function main() {
   }
 
   const { path: confPath, conf } = readConfig(rootDir);
+
+  // 設定に retrofit が無くても、**規約の場所にリバース前のモックがあれば途中**。
+  // これが無いと、まっさらなクローンで scan が未解決リンクのエラーで止まり、
+  // .ichiki.json すら作られない（設定を作るために設定が要る、という詰み方をしていた）。
+  const beforeDir = (conf.retrofit && conf.retrofit.before) || DEFAULT_BEFORE_DIR;
+  const inRetrofit = !!conf.retrofit || fs.existsSync(path.resolve(rootDir, beforeDir));
+
   const errors = new ErrorCollector();
-  // retrofit 宣言があれば未解決リンクを許す（変換器と同じ規則）
-  errors.allowUnresolvedLinks = allowUnresolvedLinks || !!conf.retrofit;
+  // リバース途中なら未解決リンクを許す（変換器と同じ規則）
+  errors.allowUnresolvedLinks = allowUnresolvedLinks || inRetrofit;
   const loaded = files.map((f) => loadPage(f.abs, f.rel));
   // 区切り文字は設定が正。**無ければモックから採る。**
   // 既定値を機械的に書くと、モックが別の区切りで書かれていた場合に
@@ -268,11 +285,21 @@ function main() {
   // 案件設定（.ichiki.json）を用意する。
   // 無ければ作り、title_separator が無ければ足す。人が JSON を手打ちする場面を消す。
   // theme_dir と site_url は環境依存なので埋められない。空で出して doctor に任せる。
-  ensureProjectConfig(confPath, conf, rootDir, acfMap.project, model, titleSeparator);
+  ensureProjectConfig(confPath, conf, rootDir, acfMap.project, model, titleSeparator, inRetrofit ? beforeDir : null);
 
+  // 案件用 CLAUDE.md は**無いときだけ作る**。
+  // 中身は案件ごとに人が書き足すもの（この案件では実装ルール・トップページの仕様・
+  // フォーム設定などが手書きで入っている）。上書きすると全部消える。
+  // 台帳を出し直すたびに `ichiki scan . .` を叩けるようにしておきたいので、
+  // ここが無防備だと事故になる（.ichiki.json は既にある値を書き換えない作りにしてある）。
   const tmplPath = path.join(__dirname, '..', 'templates', 'CLAUDE.md.tmpl');
+  const claudePath = path.join(outDir, 'CLAUDE.md');
   if (fs.existsSync(tmplPath)) {
-    fs.writeFileSync(path.join(outDir, 'CLAUDE.md'), renderClaudeMd(acfMap, tmplPath), 'utf8');
+    if (fs.existsSync(claudePath)) {
+      console.log(`CLAUDE.md は既にあるので残しました: ${path.relative(process.cwd(), claudePath)}`);
+    } else {
+      fs.writeFileSync(claudePath, renderClaudeMd(acfMap, tmplPath), 'utf8');
+    }
   }
 
   let fieldCount = 0;

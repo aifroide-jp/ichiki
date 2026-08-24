@@ -19,6 +19,15 @@ const path = require('path');
 
 const FILENAME = '.ichiki.json';
 
+// リバース前のモックの既定の置き場所（rules/ichiki.md「モックの置き場所」）。
+// **このディレクトリがあること自体が「リバース途中」の宣言**になる。
+// 名前を規約で固定しているので、存在を読むのは推測ではない（data-common と同じ）。
+// 設定に retrofit が無いまっさらなクローンでも、ここを見れば状態が分かる。
+const DEFAULT_BEFORE_DIR = '.ichiki/mockup-before';
+
+// 必須プラグイン（rules/ichiki.md「プロジェクト前提」）。案件で変わらないので既定に持つ。
+const DEFAULT_PLUGINS = ['advanced-custom-fields', 'contact-form-7', 'safe-svg'];
+
 // モックのディレクトリから上へ辿って探す。見つからなければ cwd を見る。
 // gate は案件ルートから叩かれるが、convert 単体はモックのパスだけ渡されることがある。
 function findConfigPath(startDir) {
@@ -63,4 +72,4 @@ function writeConfig(filePath, conf) {
   fs.writeFileSync(filePath, JSON.stringify(out, null, 2) + '\n', 'utf8');
 }
 
-module.exports = { FILENAME, findConfigPath, readConfig, writeConfig };
+module.exports = { FILENAME, DEFAULT_BEFORE_DIR, DEFAULT_PLUGINS, findConfigPath, readConfig, writeConfig };
