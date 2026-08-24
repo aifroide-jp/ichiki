@@ -60,6 +60,14 @@ step('アクセシビリティ', [path.join(SRC, 'a11y', 'check.js'), mockupDir,
   // AA違反があっても成果物は出す。違反そのものは C1 に記録され、直すかは別の判断。
 });
 
+// 3.5 合意したモックを公開サイトの配下に置く。
+// **testspec より前**。検収シートに「合意したデザイン」の URL を載せるかは
+// 実際に置かれているかで決まるため。
+step('モックの配置', [path.join(SRC, 'publish-mockup.js')], {
+  blocking: false,
+  detail: 'ichiki publish-mockup',
+});
+
 // 4. 検収成果物（C1 / C3 / ガイド）
 step('検収成果物', [path.join(SRC, 'testspec', 'generate.js'), ROOT]);
 

@@ -3,16 +3,17 @@
 
 // L1 向け検収ガイドの HTML 版（DOCS-GAP #6）。
 //
-// md は既にあるが、L1 が見るのは「この画面のここ」なので**実物の絵が要る**。
-// 手で貼ると更新されなくなるので、`ichiki diff` が撮ったスクリーンショットから作る。
+// この文書は**使い方だけ**を持つ。ページごとの見本は持たない。
 //
-// 何を見せるか:
-//   **合意したデザイン（モック側の絵）を見せる。** 実サイト側の絵ではない。
-//   確認してほしいのは「実サイトがこの絵の通りか」なので、実サイト側を見せると
-//   「絵と同じですね」で終わってしまう（絵も壊れていれば一致してしまう）。
+// 当初は全11ページ分の絵を埋めていた（22枚・4.7MB）。冗長だった:
+//   - `ichiki diff` の比較レポートが既に全ページのモックと実サイトを並べている
+//   - `ichiki publish-mockup` でモックを公開サイトの配下に置けば、
+//     検収シートに「実際のページ」と「合意したデザイン」の URL を2つ持たせられる。
+//     **実物を見比べられるので絵は要らない**（スマホでも見られる）
+//   - 「使い方」と「見本」は別の仕事。混ぜると使い方が読まれなくなる
 //
-// 1ファイルで渡せるように、絵は縮小して JPEG にして埋め込む。
-// 原寸を全部入れると 40MB になり、メールでもチャットでも送れない。
+// モックを置いていない案件では、見比べる先が無いので絵を1枚だけ出して
+// 「こう見比べる」を示す。
 
 const fs = require('fs');
 const path = require('path');
@@ -104,13 +105,15 @@ async function main() {
   }
   const labelOf = readPagesMap();
 
+  // 使うのは**1ページ分だけ**（見比べ方の例）。22枚作って1枚しか出さないのは無駄。
   const wanted = new Map();
   for (const it of items) {
     const label = labelOf.get(new URL(it.url).pathname);
     if (!label) continue;
-    for (const vp of ['desktop', 'mobile']) {
-      wanted.set(`${it.url}#${vp}`, path.join(VISUAL_DIR, `${label}_${vp}_mockup.png`));
-    }
+    const cand = ['desktop', 'mobile'].map((vp) => [vp, path.join(VISUAL_DIR, `${label}_${vp}_mockup.png`)]);
+    if (!cand.some(([, f]) => fs.existsSync(f))) continue;
+    for (const [vp, f] of cand) wanted.set(`${it.url}#${vp}`, f);
+    break;
   }
   const thumbs = wanted.size ? await makeThumbs(wanted) : new Map();
   if (!thumbs.size) {
@@ -160,33 +163,32 @@ async function main() {
   }
 
   if (thumbs.size) {
-    H.push('<h2>確認するページと、合意したデザイン</h2>');
-    H.push('<p>下の絵が<strong>お客様と合意したデザイン</strong>です。');
-    H.push('「実際のページ」を開いて、絵の通りに見えるかを確認してください。</p>');
+    H.push('<h2>見比べ方</h2>');
+    H.push('<p>下は<strong>合意したデザイン</strong>の例です。実際のページを開いて、この形に見えるかを確認します。</p>');
     H.push('<div class="note">絵と実際のページで、<strong>並んでいる記事の数が違うことがあります</strong>。');
     H.push('絵はデザインを見せるための見本で、実際のページには登録された記事の数だけ並びます。');
     H.push('数の違いは問題ではありません。</div>');
-    for (const it of items) {
-      const d = thumbs.get(`${it.url}#desktop`);
-      const m = thumbs.get(`${it.url}#mobile`);
-      if (!d && !m) continue;
+    const first = items.find((it) => thumbs.get(`${it.url}#desktop`) || thumbs.get(`${it.url}#mobile`));
+    if (first) {
+      const d = thumbs.get(`${first.url}#desktop`);
+      const m = thumbs.get(`${first.url}#mobile`);
       H.push('<div class="page">');
-      // 「ページ名 | サイト名」からページ名だけを出す。L1 には毎行のサイト名は要らない。
-      const name = it.page.split(SEP)[0] || it.page;
-      H.push(`<h3>${esc(name)}</h3>`);
-      H.push(`<p><a href="${esc(it.url)}" target="_blank">実際のページを開く →</a></p>`);
+      H.push(`<h3>例: ${esc((first.page.split(SEP)[0] || first.page))}</h3>`);
+      H.push(`<p><a href="${esc(first.url)}" target="_blank">実際のページを開く →</a></p>`);
       H.push('<div class="shots">');
       if (d) H.push(`<div class="shot"><span>パソコンでの見え方</span><img src="${d}" alt=""></div>`);
       if (m) H.push(`<div class="shot"><span>スマホでの見え方</span><img src="${m}" alt=""></div>`);
       H.push('</div></div>');
     }
+    H.push('<p>ほかのページも同じように見比べてください。');
+    H.push('確認するページの一覧と、それぞれの「合意したデザイン」の場所は<strong>確認シート</strong>に入っています。</p>');
   }
 
   H.push('</body></html>');
   fs.writeFileSync(OUT, H.join('\n'), 'utf8');
   const kb = Math.round(fs.statSync(OUT).size / 1024);
   console.log(`検収ガイド(HTML): ${path.relative(process.cwd(), OUT)}  ${kb}KB`);
-  console.log(`  絵: ${thumbs.size}枚（合意したデザイン。幅${THUMB_WIDTH}px に縮小して埋め込み）`);
+  console.log(`  絵: ${thumbs.size}枚（見比べ方の例。幅${THUMB_WIDTH}px に縮小して埋め込み）`);
 }
 
 // ガイドの md はごく単純な書式しか使わない（見出し・箇条書き・入れ子・太字・段落）。
