@@ -224,7 +224,7 @@ tr:hover td { background: #f9f9f9; }
 </head>
 <body>
 <h1>見た目の比較</h1>
-<p>モック <code>${MOCKUP_ROOT}</code> ↔ 比較先 <code>${WP_BASE}</code></p>
+<p>モック <code>${path.relative(process.cwd(), MOCKUP_ROOT) || '.'}</code> ↔ 比較先 <code>${WP_BASE}</code></p>
 <p>差分の許容値 ${THRESHOLD} / 生成 ${new Date().toLocaleString('ja-JP')}</p>
 <p style="background:#fff8e1;border-left:4px solid #f9a825;padding:8px 12px;">
 一覧ページは、モックが見本を何枚も並べているのに対し比較先は実際の件数しか出さないため、
