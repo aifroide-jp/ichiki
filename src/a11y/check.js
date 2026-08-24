@@ -59,8 +59,10 @@ function findHtmlFiles(rootDir) {
   return results;
 }
 
-async function checkPage(absPath) {
-  const url = 'file://' + absPath;
+async function checkPage(absPathOrUrl) {
+  // モックは file://、公開後のサイトは http(s):// で開く。
+  // 同じ判定器を使うので、モックと実サイトの結果を並べて比べられる。
+  const url = /^https?:\/\//.test(absPathOrUrl) ? absPathOrUrl : 'file://' + absPathOrUrl;
   return pa11y(url, {
     standard: 'WCAG2AA',
     runners: ['axe'],
@@ -134,6 +136,38 @@ function printHuman(pages, totals) {
   }
 }
 
+// 公開後のサイトの URL 一覧。verify:live / diff と同じ shared/site-urls.js を使う。
+async function liveTargets(mockupDir, siteUrl) {
+  const cheerio = require('cheerio');
+  const { expandUrls } = require('../shared/site-urls');
+  const pages = [];
+  for (const f of findHtmlFiles(mockupDir)) {
+    const $ = cheerio.load(fs.readFileSync(f, 'utf8'));
+    const b = $('body');
+    if (!b.attr('data-page')) continue;
+    pages.push({
+      rel: path.relative(mockupDir, f).split(path.sep).join('/'),
+      kind: b.attr('data-page'),
+      cpt: b.attr('data-cpt') || null,
+      pageId: b.attr('data-page-id') || null,
+      variant: b.attr('data-page-variant') || null,
+    });
+  }
+  const getJson = (u) =>
+    new Promise((resolve) => {
+      const mod = u.startsWith('https') ? require('https') : require('http');
+      mod
+        .get(u, (res) => {
+          let d = '';
+          res.on('data', (c) => (d += c));
+          res.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve(null); } });
+        })
+        .on('error', () => resolve(null));
+    });
+  const t = await expandUrls(pages, siteUrl, getJson, (kind, msg) => console.error(`  [skip] ${msg}`));
+  return t.map((x) => ({ label: x.url, target: siteUrl + x.url }));
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const jsonMode = args.includes('--json');
@@ -148,10 +182,27 @@ async function main() {
     process.exit(2);
   }
 
-  const files = findHtmlFiles(mockupDir);
-  if (files.length === 0) {
-    console.error(`*.html が見つかりません: ${mockupDir}`);
-    process.exit(2);
+  // --site <URL>: モックではなく**公開後のサイト**を検査する。
+  // 検収（C1）は実サイトの結果を要求する。CF7 のマークアップのように
+  // 変換後にしか現れない要素があるので、モックの結果では代用できない。
+  // URL の一覧は verify:live と同じ関数で導く（手書きの一覧を持たない）。
+  const siteIdx = args.indexOf('--site');
+  const siteUrl = siteIdx >= 0 ? args[siteIdx + 1] : null;
+
+  let targets;
+  if (siteUrl) {
+    targets = await liveTargets(mockupDir, siteUrl.replace(/\/$/, ''));
+    if (!targets.length) {
+      console.error(`検査対象の URL を導けません: ${siteUrl}`);
+      process.exit(2);
+    }
+  } else {
+    const files = findHtmlFiles(mockupDir);
+    if (files.length === 0) {
+      console.error(`*.html が見つかりません: ${mockupDir}`);
+      process.exit(2);
+    }
+    targets = files.map((f) => ({ label: path.relative(mockupDir, f).split(path.sep).join('/'), target: f }));
   }
 
   const pages = [];
@@ -159,11 +210,11 @@ async function main() {
   let totalExcluded = 0;
   let totalReview = 0;
 
-  for (const file of files) {
-    const rel = path.relative(mockupDir, file).split(path.sep).join('/');
+  for (const t of targets) {
+    const rel = t.label;
     let results;
     try {
-      results = await checkPage(file);
+      results = await checkPage(t.target);
     } catch (err) {
       console.error(`実行エラー: ${rel}: ${err.message}`);
       process.exit(2);
@@ -186,6 +237,7 @@ async function main() {
 
     pages.push({
       file: rel,
+      url: t.target,
       errors: counted.map(formatIssue),
       excluded: excluded.map(formatIssue),
       review: review.map(formatIssue),
@@ -193,6 +245,33 @@ async function main() {
   }
 
   const totals = { error: totalErrors, excluded: totalExcluded, review: totalReview };
+
+  // --site のときは、検収（C1）が読める形でも書き出す。
+  // testspec は pa11y-ci の形式 { results: { <url>: issue[] } } を期待する。
+  // pa11y-ci を別途入れずに済ませたいので、同じ判定器の結果をその形で出す
+  // （判定器を2つ持つと結果が割れる。実測でそれを何度も踏んでいる）。
+  if (siteUrl) {
+    const ri = args.indexOf('--report');
+    const reportPath = path.resolve(process.cwd(), ri >= 0 ? args[ri + 1] : 'pa11y-report.json');
+    const results = {};
+    // 除外ルール（既知の偽陽性）は数に入れない。人が見る数字と揃える。
+    // **code を必ず持たせる。** 読み手は「code を持たない要素＝接続失敗」と判定するので、
+    // 落とすと全ページが「サイトに繋がらなかった」と誤読される（実測で踏んだ）。
+    for (const pg of pages) {
+      results[pg.url || pg.file] = pg.errors.map((e) => ({
+        code: e.rule,
+        selector: e.selector,
+        context: e.context,
+        message: e.message,
+      }));
+    }
+    fs.writeFileSync(
+      reportPath,
+      JSON.stringify({ total: pages.length, errors: totalErrors, results }, null, 2),
+      'utf8'
+    );
+    if (!jsonMode) console.log(`検収向けレポート: ${path.relative(process.cwd(), reportPath)}`);
+  }
 
   if (jsonMode) {
     console.log(

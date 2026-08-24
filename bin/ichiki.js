@@ -17,7 +17,7 @@ const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf
 // [コマンド, 実体, 引数の説明, 一行説明]
 const COMMANDS = [
   ['lint',        [SRC, 'lint', 'lint.js'],            '<mockup> [--json] [--allow-unresolved-links]', 'モックが制約語彙に適合しているか'],
-  ['a11y',        [SRC, 'a11y', 'check.js'],           '<mockup> [--json]',                            'pa11y + axe（WCAG2AA）'],
+  ['a11y',        [SRC, 'a11y', 'check.js'],           '<mockup> [--json] [--site <URL>] [--report <path>]',                            'pa11y + axe（WCAG2AA）'],
   ['scan',        [SRC, 'scan.js'],                    '<mockup> <out> [--project <名前>] [--allow-unresolved-links]',                            'acf-map.yaml / coverage.json / CLAUDE.md'],
   ['build',       [SRC, 'converter', 'convert.js'],    '<mockup> <出力先> [--acf-map <yaml>]',         'WordPress テーマを生成'],
   ['verify',      [SRC, 'verify', 'coverage.js'],      '<mockup> <theme>',                             '宣言 → the_field() が出力されているか'],
