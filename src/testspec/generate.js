@@ -105,10 +105,23 @@ async function main() {
     for (const p of flagged) console.log(`  - ${p.id} (${p.file})`);
   }
   console.log('');
+  // ガイドの HTML 版も続けて出す。**別コマンドにすると呼び忘れる。**
+  // 絵が無ければ絵なしで出る（gen-guide-html が自分で判断する）。
+  {
+    const { spawnSync } = require('child_process');
+    const r = spawnSync('node', [path.join(__dirname, 'gen-guide-html.js'), REPO_ROOT], { encoding: 'utf8' });
+    process.stdout.write(r.stdout || '');
+    if (r.status !== 0) process.stderr.write(r.stderr || '');
+  }
+
   console.log('出力先:');
   console.log(`  ${path.join(OUT_DIR, 'test-spec.md')}`);
   console.log(`  ${path.join(OUT_DIR, 'l1-checklist.tsv')}`);
   console.log(`  ${path.join(OUT_DIR, 'l1-guide.md')}`);
+  {
+    const h = path.join(OUT_DIR, 'l1-guide.html');
+    if (fs.existsSync(h)) console.log(`  ${h}`);
+  }
 }
 
 main().catch(err => {
