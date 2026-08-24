@@ -27,6 +27,7 @@ const COMMANDS = [
   ['diff',        [SRC, 'visual', 'diff.js'],          '<モックルート> <比較先URL> [出力先]', 'モック ↔ 比較先URL のピクセル比較（WP でも旧モックでも）'],
   ['diff:crop',   [SRC, 'visual', 'crop.js'],          '<ラベル> [y] [高さ]',                           '差分の塊を一覧／位置指定で切り出す'],
   ['testspec',    [SRC, 'testspec', 'generate.js'],    '[案件ルート]',                                  'C1 テスト仕様書 / C3 検収シート / C3付録'],
+  ['release',     [SRC, 'release', 'generate.js'],    '[案件ルート]', '本番リリース手順書（エックスサーバー向け）'],
   ['pa11yci',     [SRC, 'testspec', 'gen-pa11yci.js'], '[案件ルート]',                                  '.pa11yci.json を生成'],
   ['gate',        [SRC, 'gate.js'],                    '<mockup> [--allow-unresolved-links] [--snapshot <json>]', '上を順に流す。最初に落ちたところで止まる'],
   ['serve',       [SRC, 'serve.js'],                   '[mockup] [port]',                              'モックを配信するだけの静的サーバ'],
