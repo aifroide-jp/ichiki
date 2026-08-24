@@ -37,6 +37,7 @@ const { ErrorCollector } = require('./converter/lib/errors');
 const { buildModel, collectFieldsIn } = require('./converter/lib/model');
 const { readConfig, writeConfig, FILENAME, DEFAULT_BEFORE_DIR, DEFAULT_PLUGINS } = require('./shared/project-config');
 const { DEFAULT_SEPARATOR, deriveTitleSuffix } = require('./shared/site-title');
+const { orderOf } = require('./shared/page-order');
 
 function pageIdFromFile(rel) {
   let id = rel.replace(/\.html$/i, '');
@@ -244,7 +245,15 @@ function main() {
   // 同じ id なのに中身が違う場合は lint L09 が全ページ横断で検出する。
   const commonBlocks = new Map();
 
-  for (const page of loaded) {
+  // 台帳は**人が読むもの**なので、サイトの構造順に並べる（shared/page-order.js）。
+  // 探索の順（ファイルパス順）をそのまま出すと直感に反する。
+  // 実測: center/biotope（詳細）が center（一覧）より前、トップが9番目だった。
+  // ここで並べておくと、台帳を入力にする C1 / C3 / 検収ガイドも一緒に揃う。
+  const ord = orderOf(loaded);
+  const ordered = [...loaded].sort(
+    (a, b) => (ord.order.get(a.relPath) ?? Infinity) - (ord.order.get(b.relPath) ?? Infinity)
+  );
+  for (const page of ordered) {
     const r = ledgerPage(page, model, errors);
     pages.push(r.page);
     coverages.push(r.coverage);

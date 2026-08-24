@@ -259,8 +259,30 @@ tr:hover td { background: #f9f9f9; }
 //   WordPress が相手  → パーマリンクを REST で引く（verify:live と同じ関数）
 //   モックが相手      → 同じ相対パス（retrofit の前後比較）。
 //                       片側にしか無いページは、まだ変換していないページなので数えて報告する
+// 表示順。page-order は cheerio でモックを読むので、ここで一度だけ作る。
+function orderRank(root) {
+  try {
+    const { findHtmlFiles } = require('../shared/discover');
+    const { loadPage } = require('../converter/lib/load-page');
+    const { ErrorCollector } = require('../converter/lib/errors');
+    const { buildModel } = require('../converter/lib/model');
+    const { orderOf } = require('../shared/page-order');
+    const pages = findHtmlFiles(root).map((f) => loadPage(f.abs, f.rel));
+    const errors = new ErrorCollector();
+    errors.allowUnresolvedLinks = true;
+    buildModel(pages, errors);
+    return orderOf(pages).order;
+  } catch {
+    return new Map(); // 並べられなくても比較はできる。順が既定に戻るだけ
+  }
+}
+
 async function buildPages() {
   const mockPages = readMockupPages(MOCKUP_ROOT);
+  // 人が読むレポートなので、サイトの構造順に並べる（shared/page-order.js）。
+  // 探索の順（ファイルパス順）だと、詳細が一覧より前に来たりトップが中盤に来る。
+  const ord = orderRank(MOCKUP_ROOT);
+  mockPages.sort((a, b) => (ord.get(a.rel) ?? Infinity) - (ord.get(b.rel) ?? Infinity));
   const isWp = await fetchJson(`${WP_BASE}/wp-json/wp/v2/pages?per_page=1`).then(
     (j) => Array.isArray(j),
     () => false

@@ -9,6 +9,53 @@ common:
         type: textarea
         default: © 2026 アーバンネイチャー北九州
 pages:
+  - id: index
+    title: アーバンネイチャー北九州
+    file: index.html
+    page_type: front
+    css:
+      - css/base.css
+      - css/page/front.css
+    sections:
+      - id: hero
+        fields:
+          - field_name: hero_title
+            type: text
+            default: 北九州の自然と暮らす
+          - field_name: hero_lead
+            type: textarea
+            default: ネイチャーポジティブを地域から進めます。
+          - field_name: hero_image
+            type: image
+            default: images/hero.jpg
+            alt: 北九州の自然
+      - id: spots
+        fields:
+          - field_name: spots_title
+            type: text
+            default: 自然スポット
+    loops:
+      - cpt: spot
+        order: date_desc
+        count: 3
+        repeat: 1
+        item_fields:
+          - hero_image
+          - hero_title
+    nav:
+      - location: global
+        links:
+          - text: トップ
+            href: index.html
+          - text: お問合せ
+            href: contact.html
+    forms: []
+    decoration:
+      - selector: div.bg-overlay
+        reason: data-deco
+    meta:
+      title: アーバンネイチャー北九州
+      description: 北九州の自然と暮らすためのネイチャーポジティブ・サイト
   - id: contact
     title: お問合せ | アーバンネイチャー北九州
     file: contact.html
@@ -60,53 +107,6 @@ pages:
     meta:
       title: お問合せ | アーバンネイチャー北九州
       description: アーバンネイチャー北九州へのお問合せ
-  - id: index
-    title: アーバンネイチャー北九州
-    file: index.html
-    page_type: front
-    css:
-      - css/base.css
-      - css/page/front.css
-    sections:
-      - id: hero
-        fields:
-          - field_name: hero_title
-            type: text
-            default: 北九州の自然と暮らす
-          - field_name: hero_lead
-            type: textarea
-            default: ネイチャーポジティブを地域から進めます。
-          - field_name: hero_image
-            type: image
-            default: images/hero.jpg
-            alt: 北九州の自然
-      - id: spots
-        fields:
-          - field_name: spots_title
-            type: text
-            default: 自然スポット
-    loops:
-      - cpt: spot
-        order: date_desc
-        count: 3
-        repeat: 1
-        item_fields:
-          - hero_image
-          - hero_title
-    nav:
-      - location: global
-        links:
-          - text: トップ
-            href: index.html
-          - text: お問合せ
-            href: contact.html
-    forms: []
-    decoration:
-      - selector: div.bg-overlay
-        reason: data-deco
-    meta:
-      title: アーバンネイチャー北九州
-      description: 北九州の自然と暮らすためのネイチャーポジティブ・サイト
   - id: spot
     title: 平尾台 | アーバンネイチャー北九州
     file: spot.html

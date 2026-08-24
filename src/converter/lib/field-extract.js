@@ -306,8 +306,18 @@ function analyzeField(page, $, el, opts, errors) {
       errors.add(page.relPath, line, `data-acf-url="${urlName}": href 属性がありません`);
       return results;
     }
+    // **url 型に ACF のデフォルト値を持たせない。**
+    //
+    // モックの href はページ相対（`../contact/`）で、ページごとに違う。
+    // それを ACF のデフォルトに入れると:
+    //   1. どのページの値が採用されるかが「台帳を作るとき最初に読んだページ」で決まる
+    //   2. get_field() が非空を返すので、**下のフォールバックに落ちない**
+    //   3. 結果として全ページで href="http://../contact/" になる（実測。本番で壊れていた）
+    // 正しい行き先はモックの href をパーマリンクへ解決したもので、それは下の
+    // フォールバックが持っている。デフォルトは空にして、必ずそちらを通す。
+    // お客様が管理画面で値を入れたときだけ、その値が使われる。
     const defaultValue = $el.attr('href');
-    results.fields.push({ name: urlName, type: 'url', defaultValue });
+    results.fields.push({ name: urlName, type: 'url', defaultValue: '', hrefForFallback: defaultValue });
 
     // 値が空のときのフォールバックを必ず持たせる。
     //

@@ -23,6 +23,7 @@ const { ErrorCollector } = require('../converter/lib/errors');
 const { buildModel } = require('../converter/lib/model');
 const { readConfig } = require('../shared/project-config');
 const { archiveSlugOf, slugOfPageId } = require('../shared/site-urls');
+const { orderOf } = require('../shared/page-order');
 
 const ROOT = path.resolve(process.argv[2] || process.cwd());
 const { conf } = readConfig(ROOT);
@@ -84,7 +85,8 @@ function unresolvedLinks() {
   }
 }
 
-function buildSiteMap(model) {
+// ページ一覧は**人が読むもの**なので、サイトの構造順に並べる（shared/page-order.js）。
+function buildSiteMap(model, ord) {
   const rows = [];
   if (model.front) rows.push({ url: '/', what: 'トップページ', tpl: 'front-page.php', src: model.front.relPath });
   for (const [pageId, e] of model.pageMap) {
@@ -107,7 +109,10 @@ function buildSiteMap(model) {
       rows.push({ url: `/${base}/<記事のスラッグ>/${v}/`, what: `${e.label} の${v}`, tpl: `single-nkk_${cpt}-${v}.php`, src: vp.relPath });
     }
   }
-  return rows;
+  // src（モックの相対パス）を鍵に並べ替える
+  return rows.sort(
+    (a, b) => (ord.order.get(a.src) ?? Infinity) - (ord.order.get(b.src) ?? Infinity)
+  );
 }
 
 function main() {
@@ -128,7 +133,7 @@ function main() {
   const forms = [...model.forms.keys()];
   const navs = [...model.navMap.keys()];
   const site = model.siteTitle;
-  const rows = buildSiteMap(model);
+  const rows = buildSiteMap(model, orderOf(model.pages));
   const unresolved = unresolvedLinks();
   const L = [];
 
