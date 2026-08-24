@@ -6,16 +6,31 @@ function cell(v) {
   return String(v == null ? '' : v).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 }
 
-function visualDiffEvidence(vd) {
+// モックと WordPress のピクセル差。**そのまま出すと誤読される。**
+//
+// 一覧ページはモックがサンプルを何枚も並べているのに対し、WordPress は
+// 実際の投稿数しか出さない。ページの丈が変わるので以下が全部ずれ、
+// 差異率が跳ね上がる（実測: about/spots は 62.53%。原因は
+// モック9枚 vs 投稿1件で、レイアウトの不具合ではない）。
+// 数字だけ見せると「6割壊れている」と読まれるので、理由を添える。
+function visualDiffEvidence(vd, page) {
   if (!vd || (vd.desktopPct == null && vd.mobilePct == null)) return 'visual-diff未実行';
   const d = vd.desktopPct != null ? `${vd.desktopPct}%` : 'N/A';
   const m = vd.mobilePct != null ? `${vd.mobilePct}%` : 'N/A';
-  return `デスクトップ diff: ${d} / モバイル diff: ${m}（参考値。最終判断は目視）`;
+  const base = `デスクトップ diff: ${d} / モバイル diff: ${m}（参考値。最終判断は目視）`;
+  if (page && page.kind === 'archive') {
+    return base + ' ※一覧ページはモックのサンプル件数と実際の投稿数が違うため、差異率は大きく出ます';
+  }
+  return base;
 }
 
-function responsiveEvidence(vd) {
+function responsiveEvidence(vd, page) {
   if (!vd || vd.mobilePct == null) return 'visual-diff未実行';
-  return `モバイル diff: ${vd.mobilePct}%（参考値。最終判断は目視）`;
+  const base = `モバイル diff: ${vd.mobilePct}%（参考値。最終判断は目視）`;
+  if (page && page.kind === 'archive') {
+    return base + ' ※一覧ページは件数差で大きく出ます';
+  }
+  return base;
 }
 
 // ページ1件分の6種別を、Markdown/HTML共通の行データとして組み立てる
@@ -26,7 +41,7 @@ function buildPageRows(page, result) {
     type: '表示確認',
     question: 'モックアップとの見た目一致（崩れ・文字化け・画像抜けがないか）',
     verdict: '要目視',
-    evidence: visualDiffEvidence(result.visualDiff),
+    evidence: visualDiffEvidence(result.visualDiff, page),
   });
 
   const acf = result.acf || { total: 0, matched: 0, missing: [], excludedImages: 0 };
@@ -72,7 +87,7 @@ function buildPageRows(page, result) {
     type: 'レスポンシブ',
     question: 'モバイル表示で文字・画像の重なり／はみ出しがないか',
     verdict: '要目視',
-    evidence: responsiveEvidence(result.visualDiff),
+    evidence: responsiveEvidence(result.visualDiff, page),
   });
 
   const a11y = result.a11y;
