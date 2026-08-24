@@ -106,6 +106,11 @@ function renderC1Markdown(model, checkResultsByPageId) {
   lines.push(`- acf-map.yaml 全ページ数: ${model.pages.length}`);
   lines.push(`- テストケース数: ${cases.length}（CPTは代表1件に集約。他は付録参照）`);
   lines.push('');
+  // 本番リリースとの境界を明示する。同じ確認を2つの文書に書くとズレるので、
+  // 「ここは中身の確認、あちらは本番への載せ方」とお互いに書いておく。
+  lines.push('> **この文書はサイトの中身が正しいかを確認するためのものです。**');
+  lines.push('> 本番サーバへの載せ方・設定は [リリース手順書](../リリース手順書.md) を見てください。');
+  lines.push('');
   lines.push('凡例: 「自動OK/自動NG」= 機械的に判定済み／「要目視」= 人が見て判断する項目（Excel/CSVの方はL1向け l1-checklist.tsv を参照。判定列は黄=要目視・未実行（未確定）・赤=自動NGで色分け）');
   lines.push('');
   lines.push('---');

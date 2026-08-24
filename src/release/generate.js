@@ -29,6 +29,21 @@ const { conf } = readConfig(ROOT);
 const MOCKUP = path.resolve(ROOT, conf.mockup || './');
 const OUT = path.resolve(ROOT, (conf.release && conf.release.out) || 'docs/リリース手順書.md');
 
+// 検収成果物への相対リンク。出力先は .ichiki.json の testspec.out_dir で変えられるので、
+// 手順書からの相対パスを計算して**リンクとして**貼る。
+// パスを文字で書くだけだと、出力先を変えたときに黙って切れる。
+const TESTSPEC_DIR = path.resolve(ROOT, (conf.testspec && conf.testspec.out_dir) || 'docs/検収');
+function linkToTestspec(fileName, label) {
+  const rel = path.relative(path.dirname(OUT), path.join(TESTSPEC_DIR, fileName)).split(path.sep).join('/');
+  const exists = fs.existsSync(path.join(TESTSPEC_DIR, fileName));
+  // まだ出していないなら、リンクではなく「先に出せ」と言う
+  // encodeURI しない。日本語のパスがそのまま読めるほうが人にとって親切で、
+  // GitHub もエディタも日本語パスのリンクを解決できる。
+  // 空白だけはリンクが切れるので、そこだけ逃がす。
+  const href = rel.replace(/ /g, '%20');
+  return exists ? `[${label}](${href})` : `${label}（**未生成**。\`ichiki testspec\` を先に実行してください）`;
+}
+
 // そのリンクが data-nav の中に書かれているか
 const navCache = new Map();
 function isInNav(absFile, href) {
@@ -124,6 +139,17 @@ function main() {
   L.push('上から順に実行してください。**「要記入」と書かれた箇所は、実行前に埋める必要があります。**');
   L.push('サーバやドメインの情報は機械が知りようがないため、空欄にしてあります。');
   L.push('');
+  L.push('> **この文書は「本番サーバに載せて設定する」ための手順です。**');
+  L.push('> サイトの中身が正しいか（見た目・文言・レスポンシブ・フォームの動作）は');
+  L.push(`> **検収**の役目で、ここでは扱いません。`);
+  L.push('>');
+  L.push(`> - ${linkToTestspec('test-spec.md', 'テスト仕様書（C1）')} … 何をどう確認するか`);
+  L.push(`> - ${linkToTestspec('l1-checklist.tsv', '検収シート（C3）')} … 目視で確認して判定を書き込む表`);
+  L.push(`> - ${linkToTestspec('l1-guide.md', '検収ガイド')} … 判定に迷ったときの読みもの`);
+  L.push('>');
+  L.push('> 同じ確認を2つの文書に書くと、片方だけ直されてズレるためです。');
+  L.push('> ここで見るのは**本番環境でしか起きないこと**だけです。');
+  L.push('');
 
   if (conf.retrofit) {
     L.push('> **注意: このテーマは変換途中のモックから作られています。**');
@@ -142,7 +168,10 @@ function main() {
   L.push('| WordPress の管理者アカウント | |');
   L.push('| 公開予定日 | |');
   L.push('');
-  L.push('前提: WordPress 6.5 以上 / PHP 8.1 以上 / クラシックテーマが動く状態。');
+  L.push('前提:');
+  L.push('');
+  L.push('- WordPress 6.5 以上 / PHP 8.1 以上 / クラシックテーマが動く状態');
+  L.push(`- [ ] **検収が済んでいる**（${linkToTestspec('l1-checklist.tsv', '検収シート')} の目視確認が終わっている）`);
   L.push('');
 
   L.push('## 1. プラグインを入れて有効化する');
@@ -204,21 +233,28 @@ function main() {
     for (const f of forms) L.push(`| ${f} | |`);
     L.push('');
     L.push('「お問い合わせ」からフォームを開き、「メール」タブの「送信先」を書き換えます。');
+    L.push('');
     L.push('- [ ] 送信先を設定した');
-    L.push('- [ ] **実際に送信して受信を確認した**（届かないことがあるため、必ず実物で確かめる）');
+    L.push('- [ ] **本番サーバから実際に送信して、受信できた**');
+    L.push('');
+    L.push('フォームが動くかどうかは検収で確認済みです。ここで見るのは**本番のメールサーバで');
+    L.push('実際に届くか**で、これは環境が変わると結果が変わるため、本番でもう一度必要です。');
   } else {
     L.push('- （フォームの宣言がありません）');
   }
   L.push('');
 
-  L.push('## 7. 画面を確認する');
+  L.push('## 7. ページの一覧（参考）');
+  L.push('');
+  L.push('このテーマが出すページです。**見た目や文言の確認は検収で済んでいます。**');
+  L.push('ここでは「本番サーバに載せたあと、ちゃんと開くか」だけを見ます');
+  L.push('（サーバの設定やパーマリンクの反映漏れで 404 になることがあるため）。');
   L.push('');
   L.push('| URL | 内容 | テンプレート |');
   L.push('|---|---|---|');
   for (const r of rows) L.push(`| \`${r.url}\` | ${r.what} | \`${r.tpl}\` |`);
   L.push('');
-  L.push('- [ ] 上のページがすべて開ける');
-  L.push('- [ ] スマートフォンの幅でも崩れていない');
+  L.push('- [ ] 各種別から1つずつ開いて 404 にならない（トップ / 固定ページ / 一覧 / 詳細）');
   L.push('');
 
   L.push('## 8. 画像を入れる');
@@ -271,8 +307,8 @@ function main() {
 
   L.push('## 10. 公開前の最終確認');
   L.push('');
-  L.push('- [ ] `docs/検収/l1-checklist.tsv` の目視確認が済んでいる');
-  L.push('- [ ] フォームの受信を実物で確認した');
+  L.push('本番環境でしか確認できないことだけを挙げます（中身の確認は検収の役目）。');
+  L.push('');
   L.push('- [ ] 検索エンジンによるインデックスを許可した（「設定 > 表示設定」のチェックを外す）');
   L.push('- [ ] SSL（https）で表示される');
   L.push('- [ ] 管理者アカウントのパスワードを本番用にした');
