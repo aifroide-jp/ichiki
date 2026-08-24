@@ -236,8 +236,11 @@ function main() {
   errors.throwIfAny();
 
   const acfMap = {
-    // プロジェクト名。--project で明示できる（.ichiki.json の project を渡す）。
-    project: projectName || path.basename(path.resolve(rootDir, '..', '..')),
+    // プロジェクト名。--project > .ichiki.json > ディレクトリ名 の順。
+    // ディレクトリ名からの導出は**置き場所への仮定**なので当てにならない。
+    // 実測: モックをリポジトリ直下へ移しただけで "Documents" になった
+    // （2つ上のディレクトリ名を採っていたため）。設定があるならそれが正。
+    project: projectName || conf.project || path.basename(path.resolve(rootDir)),
     generated_by: 'ichiki scan（変換器のモデルから生成）',
     common: [...commonBlocks.values()],
     pages,

@@ -94,8 +94,8 @@ if (conf) {
     notes.push(
       `リバース途中（.ichiki.json の retrofit 宣言）: 変換前 ${before}ページ / 変換済み ${after}ページ` +
         (conf.retrofit.note ? `\n     ${conf.retrofit.note}` : '') +
-        '\n     この間だけ未解決リンクが許され、モックの置き場所も規約から外れてよい。' +
-        '\n     終わったら retrofit を消し、モックをルートへ移すこと。'
+        '\n     この間は未解決リンクが警告に落ち、生成したテーマが管理画面に警告を出す。' +
+        `\n     終わったら retrofit を消し、${conf.retrofit.before || 'before'} を削除すること。`
     );
   }
   if (!conf.title_separator) {
