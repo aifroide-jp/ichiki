@@ -14,7 +14,7 @@ function cell(v) {
 // モック9枚 vs 投稿1件で、レイアウトの不具合ではない）。
 // 数字だけ見せると「6割壊れている」と読まれるので、理由を添える。
 function visualDiffEvidence(vd, page) {
-  if (!vd || (vd.desktopPct == null && vd.mobilePct == null)) return 'visual-diff未実行';
+  if (!vd || (vd.desktopPct == null && vd.mobilePct == null)) return '未実行（`ichiki diff . <サイトURL> <出力先> --both` を先に実行してください）';
   const d = vd.desktopPct != null ? `${vd.desktopPct}%` : 'N/A';
   const m = vd.mobilePct != null ? `${vd.mobilePct}%` : 'N/A';
   const base = `デスクトップ diff: ${d} / モバイル diff: ${m}（参考値。最終判断は目視）`;
@@ -25,7 +25,7 @@ function visualDiffEvidence(vd, page) {
 }
 
 function responsiveEvidence(vd, page) {
-  if (!vd || vd.mobilePct == null) return 'visual-diff未実行';
+  if (!vd || vd.mobilePct == null) return '未実行（`ichiki diff . <サイトURL> <出力先> --both` を先に実行してください）';
   const base = `モバイル diff: ${vd.mobilePct}%（参考値。最終判断は目視）`;
   if (page && page.kind === 'archive') {
     return base + ' ※一覧ページは件数差で大きく出ます';
@@ -103,7 +103,7 @@ function buildPageRows(page, result) {
     rows.push({
       type: 'アクセシビリティ簡易チェック',
       question: 'pa11y-ci（axe-core）によるWCAG 2.0 AA自動検出',
-      verdict: '未実行（別途 pa11y-ci を実行してください）',
+      verdict: '未実行（`ichiki a11y . --site <サイトURL>` を先に実行してください）',
       evidence: 'pa11y-report.json が見つからない',
     });
   }
