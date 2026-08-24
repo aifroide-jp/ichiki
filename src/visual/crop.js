@@ -3,9 +3,9 @@
 
 // ピクセル差分の「どこが違うか」を目で見るための切り出し。
 //   node src/visual/crop.js <接頭辞>            … 差分の塊を一覧
-//   node src/visual/crop.js <接頭辞> <y> [高さ] … その位置を mockup/比較先 で切り出す
+//   node src/visual/crop.js <接頭辞> <y> [高さ] … その位置を mockup / target で切り出す
 //
-// diff.js が出力先に置いた <接頭辞>_mockup.png / _wp.png / _diff.png を読む。
+// diff.js が出力先に置いた <接頭辞>_mockup.png / _target.png / _diff.png を読む。
 // 接頭辞は「ラベルの記号を _ に置換 + _desktop（または _mobile）」。
 //   例: about/spots → about_spots_desktop
 // 切り出しは crop-<接頭辞>-<y>-mockup.png / -wp.png に出る。
@@ -60,7 +60,7 @@ if (!yArg) {
 
 const y = parseInt(yArg, 10);
 const h = parseInt(hArg || '120', 10);
-for (const side of ['mockup', 'wp']) {
+for (const side of ['mockup', 'target']) {
   const src = read(side);
   const height = Math.min(h, src.height - y);
   const out = new PNG({ width: src.width, height });

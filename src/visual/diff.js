@@ -200,8 +200,8 @@ function buildReport(results) {
     return r.viewports.map(v => `
       <tr>
         <td>${r.label}</td>
-        <td>${v.name}</td>
-        <td>${v.result ? badge(v.result.pct) : '<span style="color:#999">skip</span>'}</td>
+        <td>${v.name === 'mobile' ? 'スマホ' : 'パソコン'}</td>
+        <td>${v.result ? badge(v.result.pct) : '<span style="color:#999">撮れず</span>'}</td>
         <td><a href="${v.mockupImg}" target="_blank"><img src="${v.mockupImg}" style="max-width:280px;border:1px solid #ddd;"></a></td>
         <td><a href="${v.wpImg}"     target="_blank"><img src="${v.wpImg}"     style="max-width:280px;border:1px solid #ddd;"></a></td>
         <td><a href="${v.diffImg}"   target="_blank"><img src="${v.diffImg}"   style="max-width:280px;border:1px solid #ddd;"></a></td>
@@ -212,7 +212,7 @@ function buildReport(results) {
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Visual Diff</title>
+<title>見た目の比較</title>
 <style>
 body { font-family: sans-serif; font-size: 14px; margin: 0; padding: 20px; background: #f5f5f5; }
 h1 { color: #2c5f2d; }
@@ -223,14 +223,32 @@ tr:hover td { background: #f9f9f9; }
 </style>
 </head>
 <body>
-<h1>Visual Diff</h1>
-<p>threshold: ${THRESHOLD} / generated: ${new Date().toISOString()}</p>
+<h1>見た目の比較</h1>
+<p>モック <code>${MOCKUP_ROOT}</code> ↔ 比較先 <code>${WP_BASE}</code></p>
+<p>差分の許容値 ${THRESHOLD} / 生成 ${new Date().toLocaleString('ja-JP')}</p>
+<p style="background:#fff8e1;border-left:4px solid #f9a825;padding:8px 12px;">
+一覧ページは、モックが見本を何枚も並べているのに対し比較先は実際の件数しか出さないため、
+差分が大きく出ます。レイアウトの不具合とは限りません。</p>
 <table>
-<thead><tr><th>ページ</th><th>viewport</th><th>差分</th><th>モックアップ</th><th>WordPress</th><th>Diff</th></tr></thead>
+<thead><tr><th>ページ</th><th>画面幅</th><th>差分</th><th>モック</th><th>比較先</th><th>違うところ</th></tr></thead>
 <tbody>${rows}</tbody>
 </table>
 </body>
 </html>`;
+
+  // **機械が読むのは JSON。** HTML は人が見るもの。
+  // 以前は検収（testspec）が HTML を正規表現で読んでいて、
+  // 見出しを日本語にしただけで壊れた。表示と機械可読を分ける。
+  fs.writeFileSync(
+    path.join(REPORT_DIR, 'results.json'),
+    JSON.stringify(
+      results.flatMap((r) =>
+        r.viewports.map((v) => ({ label: r.label, viewport: v.name, pct: v.result ? Number(v.result.pct) : null }))
+      ),
+      null,
+      2
+    )
+  );
 
   const outPath = path.join(REPORT_DIR, 'index.html');
   fs.writeFileSync(outPath, html);
@@ -342,7 +360,8 @@ function fetchStatus(url) {
       const prefix = `${slug}_${vp.name}`;
 
       const mockupImg = path.join(REPORT_DIR, `${prefix}_mockup.png`);
-      const wpImg     = path.join(REPORT_DIR, `${prefix}_wp.png`);
+      // 比較先は WordPress とは限らない（旧モックのこともある）ので target と呼ぶ。
+      const wpImg     = path.join(REPORT_DIR, `${prefix}_target.png`);
       const diffImg   = path.join(REPORT_DIR, `${prefix}_diff.png`);
 
       const context = await browser.newContext({

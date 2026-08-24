@@ -8,25 +8,25 @@
 const fs = require('fs');
 const path = require('path');
 
-// buildReport() (src/visual/diff.js) が出す <tr><td>label</td><td>viewport</td><td>...NN.NN%...</td> の形を読む
-const ROW_RE = /<tr>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<td>(?:<span[^>]*>([\d.]+)%<\/span>|<span[^>]*>skip<\/span>)<\/td>/g;
+// diff が出す results.json を「読むだけ」。未実行なら常に null（再実行はしない）。
+//
+// 以前は index.html を正規表現で読んでいた。**表示を直したら壊れる。**
+// 実測: 見出しを日本語にしただけで viewport の照合が効かなくなった。
+// 人が見るもの（HTML）と機械が読むもの（JSON）を分ける。
 
-// pagesPath : 比較対象の一覧（案件側の JSON。[{ label, mockup, wp }, …]）
-// reportPath: diff の出力（<出力先>/index.html）
-function readVisualDiffReport(pagesPath, reportPath) {
-  if (!pagesPath || !reportPath || !fs.existsSync(pagesPath) || !fs.existsSync(reportPath)) {
+// pagesPath : diff が出した対応表（<出力先>/pages.json）
+// jsonPath  : diff が出した結果（<出力先>/results.json）
+function readVisualDiffReport(pagesPath, jsonPath) {
+  if (!pagesPath || !jsonPath || !fs.existsSync(pagesPath) || !fs.existsSync(jsonPath)) {
     return { getResult: () => null };
   }
 
   const pagesList = JSON.parse(fs.readFileSync(pagesPath, 'utf8'));
   const labelByMockup = new Map(pagesList.map((p) => [p.mockup, p.label]));
 
-  const html = fs.readFileSync(reportPath, 'utf8');
   const pctByLabelViewport = new Map();
-  let m;
-  while ((m = ROW_RE.exec(html))) {
-    const [, label, viewport, pct] = m;
-    if (pct) pctByLabelViewport.set(`${label}__${viewport}`, pct);
+  for (const r of JSON.parse(fs.readFileSync(jsonPath, 'utf8'))) {
+    if (r.pct != null) pctByLabelViewport.set(`${r.label}__${r.viewport}`, String(r.pct));
   }
 
   return {
@@ -35,7 +35,7 @@ function readVisualDiffReport(pagesPath, reportPath) {
       if (!label) return null;
       const desktopPct = pctByLabelViewport.get(`${label}__desktop`) || null;
       const mobilePct = pctByLabelViewport.get(`${label}__mobile`) || null;
-      if (desktopPct === null && mobilePct === null) return null;
+      if (desktopPct == null && mobilePct == null) return null;
       return { desktopPct, mobilePct };
     },
   };
