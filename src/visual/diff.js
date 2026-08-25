@@ -321,7 +321,7 @@ function readMockupPages(root) {
       const f = path.join(d, e.name);
       // 隠しディレクトリを飛ばすのは discover.js と同じ規則。
       // 飛ばさないと .claude/ichiki/test/fixture の HTML まで比較対象に入る。
-      // リバース前のモック（.ichiki/mockup-before）もここで自動的に外れる。
+      // 合意デザイン（.ichiki/mockup-before）もここで自動的に外れる。
       if (e.isDirectory()) {
         if (e.name !== 'node_modules' && !e.name.startsWith('.')) walk(f);
         continue;

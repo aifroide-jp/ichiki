@@ -55,7 +55,7 @@ function collectPageFields(model, page) {
   return out;
 }
 
-// リバース途中であることを管理画面に出す PHP。
+// 構造化が途中であることを管理画面に出す PHP。
 // .ichiki.json の retrofit 宣言がある間だけ生成される。
 function generateRetrofitNotice(retrofit, unresolvedCount) {
   const q = (v) => "'" + String(v == null ? '' : v).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
@@ -63,7 +63,7 @@ function generateRetrofitNotice(retrofit, unresolvedCount) {
   return [
     '<?php',
     '/**',
-    ' * リバース（既存モックの制約語彙化）が途中であることの表示。',
+    ' * 構造化（既存モックの制約語彙化）が途中であることの表示。',
     ' * .ichiki.json の retrofit 宣言から生成される。宣言を消せばこのファイルも出なくなる。',
     ' */',
     "if ( ! defined( 'ABSPATH' ) ) { exit; }",
@@ -116,7 +116,7 @@ function main() {
   const pages = files.map((f) => loadPage(f.abs, f.rel));
 
   // 案件の設定を先に読む。未解決リンクを許すかどうかがここで決まるため。
-  // retrofit 宣言（リバース途中）があれば、変換していないページへのリンクは
+  // retrofit 宣言（構造化が途中）があれば、変換していないページへのリンクは
   // 必ず出るので警告に落とす。フラグを毎回書かせない（rules/ichiki.md）。
   const { conf } = readConfig(mockupDir);
   const retrofit = conf.retrofit || null;
@@ -224,7 +224,7 @@ function main() {
     throw e;
   }
 
-  // --- リバース途中なら、その事実をテーマ自身に持たせる ---
+  // --- 構造化が途中なら、その事実をテーマ自身に持たせる ---
   //
   // 変換は止めない。**少数のページで先に WP まで通すのは正しい順序**で、
   // 実測でも変換器の欠陥（フィールド突合の素通り・画像がメディアに入らない・

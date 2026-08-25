@@ -175,10 +175,10 @@ function ensureProjectConfig(confPath, conf, rootDir, projectName, model, titleS
     );
   }
   if (!next.retrofit && beforeDir) {
-    // リバース前のモックが実在するので、状態を宣言として書き出す。
+    // 合意デザインが実在するので、状態を宣言として書き出す。
     // 消し忘れると未解決リンクが許され続けるので、doctor が毎回言う。
-    next.retrofit = { before: beforeDir, note: 'リバース途中。変換し終えたらこの節ごと消す' };
-    added.push(`retrofit.before: ${beforeDir}（リバース前のモックがあるため）`);
+    next.retrofit = { before: beforeDir, note: '構造化が途中。変換し終えたらこの節ごと消す' };
+    added.push(`retrofit.before: ${beforeDir}（合意デザインがあるため）`);
   }
   if (!next.plugins_required) {
     next.plugins_required = [...DEFAULT_PLUGINS];
@@ -223,14 +223,14 @@ function main() {
 
   const { path: confPath, conf } = readConfig(rootDir);
 
-  // 設定に retrofit が無くても、**規約の場所にリバース前のモックがあれば途中**。
+  // 設定に retrofit が無くても、**規約の場所に合意デザインがあれば途中**。
   // これが無いと、まっさらなクローンで scan が未解決リンクのエラーで止まり、
   // .ichiki.json すら作られない（設定を作るために設定が要る、という詰み方をしていた）。
   const beforeDir = (conf.retrofit && conf.retrofit.before) || DEFAULT_BEFORE_DIR;
   const inRetrofit = !!conf.retrofit || fs.existsSync(path.resolve(rootDir, beforeDir));
 
   const errors = new ErrorCollector();
-  // リバース途中なら未解決リンクを許す（変換器と同じ規則）
+  // 構造化が途中なら未解決リンクを許す（変換器と同じ規則）
   errors.allowUnresolvedLinks = allowUnresolvedLinks || inRetrofit;
   const loaded = files.map((f) => loadPage(f.abs, f.rel));
   // 区切り文字は設定が正。**無ければモックから採る。**

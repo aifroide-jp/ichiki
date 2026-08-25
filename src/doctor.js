@@ -70,7 +70,7 @@ if (conf) {
   for (const k of ['theme_dir', 'site_url']) {
     if (!conf[k]) ng(`.ichiki.json の ${k} が空`, '環境に合わせて書いてください（scan は埋められません）');
   }
-  // リバース途中の宣言。規約（rules/ichiki.md「モックの置き場所」）から外れた配置を
+  // 構造化が途中の宣言。規約（rules/ichiki.md「モックの置き場所」）から外れた配置を
   // 宣言された逸脱として扱う。**残件を数字で出す**。書いたまま忘れられるのが一番まずい。
   if (conf.retrofit) {
     const beforeDir = path.resolve(ROOT, conf.retrofit.before || '.');
@@ -92,7 +92,7 @@ if (conf) {
     const before = count(beforeDir);
     const after = count(mockDir);
     notes.push(
-      `リバース途中（.ichiki.json の retrofit 宣言）: 変換前 ${before}ページ / 変換済み ${after}ページ` +
+      `構造化が途中（.ichiki.json の retrofit 宣言）: 変換前 ${before}ページ / 変換済み ${after}ページ` +
         (conf.retrofit.note ? `\n     ${conf.retrofit.note}` : '') +
         '\n     この間は未解決リンクが警告に落ち、生成したテーマが管理画面に警告を出す。' +
         `\n     終わったら retrofit を消し、${conf.retrofit.before || 'before'} を削除すること。`
