@@ -1,0 +1,62 @@
+# {{PROJECT}} — モックアップと WordPress 化
+
+<!-- ichiki scan で自動生成。無いときだけ作られる（人が書き足した分は消さない） -->
+
+このリポジトリの**ルートがモックアップ**です。`index.html` をブラウザで開けばサイトが見られます。
+そこから WordPress テーマを作るのが [Ichiki](.claude/ichiki/)（`.claude/ichiki` に submodule で入っています）。
+
+## やりたいことから探す
+
+| | |
+|---|---|
+| **はじめて触る / エラーで止まった** | [セットアップと詰まりどころ](.claude/ichiki/docs/01-セットアップ.md) |
+| **モックを作る・直す** | [モックアップを作る](.claude/ichiki/docs/02-モックアップを作る.md) |
+| **WordPress にする・検査する** | [変換して検査する](.claude/ichiki/docs/03-変換して検査する.md) |
+{{LINKS}}
+| Ichiki の中身を知りたい | [Ichiki の README](.claude/ichiki/README.md) |
+| **Ichiki を直す** | [壊れやすいところ](.claude/ichiki/docs/壊れやすいところ.md) |
+
+## いつも使う2つ
+
+```bash
+node .claude/ichiki/bin/ichiki.js gate      # モック → テーマ（lint → scan → 変換 → 生成物の検証）
+#   ここでテーマを WordPress に入れる
+node .claude/ichiki/bin/ichiki.js deliver   # 公開後の検査 → 検収成果物 → リリース手順書
+node .claude/ichiki/bin/ichiki.js --help    # コマンド一覧
+```
+
+引数は要りません。モックの場所・サイトの URL その他は [`.ichiki.json`](.ichiki.json) が持っています。
+
+`gate` はサイトが無くても動きます。`deliver` は**動いている WordPress が要ります**
+（見た目とアクセシビリティを実サイトで測り、その結果を検収成果物に取り込むため）。
+`--no-visual` で撮影を飛ばせます（速いが、C1 の表示確認は「未実行」になります）。
+
+---
+
+## 中身
+
+| | |
+|---|---|
+| ルート直下の `*.html` / `css/` / `js/` / `images/` | **モックアップ**。お客様と合意するもの |
+| `.ichiki.json` | 案件の設定。モックの場所・テーマの出力先・サイトURL・`<title>` の区切り |
+| `.ichiki/snapshot.json` | 生成物の凍結。出力が変わったら名指しで出る |
+| `acf-map.yaml` | フィールド台帳。`ichiki scan . .` で出し直せる |
+| `CLAUDE.md` | 案件の実装ルール |
+{{FILES}}
+
+---
+
+## 見た目が変わっていないことの確認
+
+モックと WordPress を比べます。
+
+```bash
+node .claude/ichiki/bin/ichiki.js diff . <サイトURL>
+```
+
+パーマリンクは REST から解決するので、ページ一覧を用意する必要はありません。
+`ichiki deliver` を使えばこれも含めて流れます。
+
+**ピクセル比較は `gate` に入れていません。** お客様と合意するまでモックの見た目は
+変わるのが正しいので、毎回かけると正しい変更が FAIL になります。
+{{BEFORE_NOTE}}

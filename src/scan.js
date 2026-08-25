@@ -201,6 +201,65 @@ function ensureProjectConfig(confPath, conf, rootDir, projectName, model, titleS
   console.log(`     サイト名 "${site.siteName}"${site.tagline ? ` / タグライン "${site.tagline}"` : ''}`);
 }
 
+// 案件用 README（templates/README.md.tmpl から生成）。
+// **案件固有の情報は名前だけ**なので生成できる。手で書くとブレるし、
+// 次の案件で作り直しになる。
+//
+// 「やりたいことから探す」と「中身」の行は、**実在するファイルだけ**出す。
+// まだ検収を回していない案件で検収シートへのリンクを出すと、開けないものを踏ませる。
+function renderReadme(projectName, rootDir, tmplPath) {
+  const has = (rel) => fs.existsSync(path.join(rootDir, rel));
+  const links = [];
+  if (has('docs/リリース手順書.md')) {
+    links.push('| **本番に載せる** | [リリース手順書](docs/リリース手順書.md)（`ichiki release` の出力） |');
+  }
+  if (has('docs/検収/l1-checklist.tsv')) {
+    const g = has('docs/検収/l1-guide.html') ? 'l1-guide.html' : 'l1-guide.md';
+    links.push(`| **検収する** | [検収シート](docs/検収/l1-checklist.tsv) と [使い方](docs/検収/${g}) |`);
+  }
+  if (has('docs/この案件の状態.md')) {
+    links.push('| **この案件の状態を知りたい** | [この案件の状態](docs/この案件の状態.md)（許容している差・やらないこと） |');
+  }
+
+  const files = [];
+  if (has('.ichiki/mockup-before')) {
+    files.push('| `.ichiki/mockup-before/` | **合意デザイン**（構造化前）。記録用。見た目が変わっていないかの比較に使う |');
+  }
+  if (has('docs/検収')) {
+    files.push(
+      '| `docs/検収/` | C1 テスト仕様書 / C3 検収シート・ガイド（`ichiki testspec` の出力。gitignore） |'
+    );
+  }
+  // 生成できない記録（人手で作った成果物など）は、名前が分からないので拾って出す。
+  for (const d of fs.existsSync(path.join(rootDir, 'docs')) ? fs.readdirSync(path.join(rootDir, 'docs')) : []) {
+    if (!d.startsWith('検収-')) continue;
+    files.push(`| \`docs/${d}/\` | 過去の検収成果物。**再生成できないので記録として追跡する** |`);
+  }
+  if (has('docs/リリース手順書.md')) {
+    files.push('| `docs/リリース手順書.md` | 本番公開の手順（`ichiki release` の出力） |');
+  }
+  if (has('docs/この案件の状態.md')) {
+    files.push('| `docs/この案件の状態.md` | 許容している差・やらないと決めたこと・後回し |');
+  }
+  if (has('PROJECT-NOTES.md')) {
+    files.push('| `PROJECT-NOTES.md` | リスクと未確認事項 |');
+  }
+
+  return fs
+    .readFileSync(tmplPath, 'utf8')
+    .replace(/\{\{PROJECT\}\}/g, projectName || '')
+    .replace('{{LINKS}}\n', links.length ? links.join('\n') + '\n' : '')
+    .replace('{{FILES}}\n', files.length ? files.join('\n') + '\n' : '')
+    // 合意デザインがある案件だけ、そこと比べる方法への導線を出す
+    .replace(
+      '{{BEFORE_NOTE}}\n',
+      has('.ichiki/mockup-before') && has('docs/この案件の状態.md')
+        ? '\n> 合意デザイン（`.ichiki/mockup-before/`）と比べたいときは\n' +
+          '> [この案件の状態](docs/この案件の状態.md) を見てください。**構造化のときだけ**必要です。\n'
+        : ''
+    );
+}
+
 function main() {
   const pIdx = process.argv.indexOf('--project');
   const projectName = pIdx >= 0 ? process.argv[pIdx + 1] : null;
@@ -307,6 +366,20 @@ function main() {
   // フォーム設定などが手書きで入っている）。上書きすると全部消える。
   // 台帳を出し直すたびに `ichiki scan . .` を叩けるようにしておきたいので、
   // ここが無防備だと事故になる（.ichiki.json は既にある値を書き換えない作りにしてある）。
+  // 案件用 README。CLAUDE.md と同じく**無いときだけ作る**（人が書き足した分を消さない）。
+  {
+    const t = path.join(__dirname, '..', 'templates', 'README.md.tmpl');
+    const out = path.join(outDir, 'README.md');
+    if (fs.existsSync(t)) {
+      if (fs.existsSync(out)) {
+        console.log(`README.md は既にあるので残しました: ${path.relative(process.cwd(), out)}`);
+      } else {
+        fs.writeFileSync(out, renderReadme(acfMap.project, outDir, t), 'utf8');
+        console.log(`README.md を作りました: ${path.relative(process.cwd(), out)}`);
+      }
+    }
+  }
+
   const tmplPath = path.join(__dirname, '..', 'templates', 'CLAUDE.md.tmpl');
   const claudePath = path.join(outDir, 'CLAUDE.md');
   if (fs.existsSync(tmplPath)) {
