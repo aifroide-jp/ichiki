@@ -74,17 +74,14 @@ async function main() {
   const c1 = renderC1Markdown(model, checkResultsByPageId);
   fs.writeFileSync(path.join(OUT_DIR, 'test-spec.md'), c1);
 
-  // 「合意したデザイン」の列を出すかどうか。**実際に置かれているかを確かめる。**
-  // 置いていないのに URL を書くと、L1 が開けないリンクを踏んで止まる。
-  // 置き先は ichiki publish-mockup と同じ規則（サイトのドキュメントルート直下 _mockup）。
-  const mockupBase = (() => {
-    const td = ICHIKI.theme_dir || '';
-    const i = td.indexOf(`${path.sep}wp-content${path.sep}themes${path.sep}`);
-    if (i <= 0 || !SITE_URL) return null;
-    const dir = path.join(td.slice(0, i), '_mockup');
-    return fs.existsSync(dir) ? `${SITE_URL.replace(/\/$/, '')}/_mockup` : null;
-  })();
-  if (mockupBase) console.log(`合意したデザイン: ${mockupBase}/ を検収シートに載せます`);
+  // 「合意したデザイン」の列。**モックは手元にある前提**。
+  //
+  // 検収するのは社内スタッフで、リポジトリを落として作業する。
+  // したがってモックはローカルのファイルとして開ける。公開サイトに置く必要は無い
+  // （置くと41MBが公開サイトに乗り、消し忘れの管理も要る）。
+  //
+  // Excel / スプレッドシートから開けるように file:// の絶対パスにする。
+  const mockupBase = `file://${path.resolve(REPO_ROOT, ICHIKI.mockup || './')}`;
 
   const c3Tsv = renderC3Tsv(model, checkResultsByPageId, mockupBase);
   fs.writeFileSync(path.join(OUT_DIR, 'l1-checklist.tsv'), c3Tsv);

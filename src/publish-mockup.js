@@ -1,29 +1,26 @@
 #!/usr/bin/env node
 'use strict';
 
-// 合意したモックを、サイトの配下に置く（検収用）。
+// 合意したモックを、任意の場所に配る。
 //
 // 誰のためか:
-//   **検収する社内スタッフ**のため。お客様は検収シートを使わない
-//   （お客様が見るのは、合意までのモックと、納品後の WordPress の2つだけ）。
-//   検収の「見た目はモックアップ通りに見えますか？」に答えるには、モックと実サイトを
-//   並べて見る必要がある。スタッフは開発機の localhost に届かないことがあるので、
-//   ステージングの URL の下に置いて、どの端末からでも見られるようにする。
-//   置く前は検収ガイドに画像を22枚埋めていた（4.7MB）。
+//   **お客様**のため。合意までの間、モックを見てもらう必要がある。
+//   渡し方は「HTML を直渡し」か「検証サーバに設置」の2つで、後者がこれ。
+//
+//   検収する社内スタッフには要らない。スタッフはリポジトリを落として作業するので、
+//   モックは手元にファイルとしてある（検収シートの「合意したデザイン」列は
+//   file:// でそこを指す）。公開サイトに置くと41MBが乗るうえ、
+//   消し忘れの管理も要る。置かないほうがよい。
 //
 //   モックは相対パスで自己完結している（vocabulary.md 7章・8章）ので、
-//   フォルダを置くだけで動く。置けば:
-//     - 検収シートに「実際のページ」と「合意したデザイン」の URL を2つ持たせられる
-//     - 画像の埋め込みが要らなくなる
-//     - スマホでも実物を見比べられる（画像だと拡大縮小がつらい）
+//   フォルダを置くだけで動く。
 //
 // 検索エンジン対策:
 //   モックの各ページは <meta name="robots" content="noindex, nofollow"> を持っている
 //   （lint では強制していないが、実測で12/12ページにある）。
 //   持たないページがあれば警告する。サーバ設定に頼らないほうが確実。
 //
-// **検収が終わったら消す。** --remove で消せる。
-// 消し忘れると、お客様に見せる予定の無いモックが公開サイトに残る。
+// **見せ終わったら消す。** --remove で消せる。
 
 const fs = require('fs');
 const path = require('path');
@@ -36,22 +33,15 @@ const ROOT = process.cwd();
 const { conf } = readConfig(ROOT);
 
 const MOCKUP = path.resolve(ROOT, conf.mockup || './');
-// 置き先。既定は公開サイトのドキュメントルート直下 _mockup。
-// theme_dir から wp-content/themes/... を遡ってドキュメントルートを出す。
-function docRoot() {
-  const td = conf.theme_dir || '';
-  const i = td.indexOf(`${path.sep}wp-content${path.sep}themes${path.sep}`);
-  return i > 0 ? td.slice(0, i) : null;
-}
-const dest = positional[0]
-  ? path.resolve(ROOT, positional[0])
-  : docRoot()
-    ? path.join(docRoot(), '_mockup')
-    : null;
+// 置き先は**必ず指定させる**。既定を持たせない。
+// 相手も置き場所も案件ごとに違う（お客様の検証サーバ・社内サーバ・共有フォルダ）。
+// 既定を WordPress のドキュメントルートにしていたが、それは検収用と勘違いしていた頃の名残。
+const dest = positional[0] ? path.resolve(ROOT, positional[0]) : null;
 
 if (!dest) {
-  console.error('置き先が分かりません。引数で渡すか、.ichiki.json の theme_dir を書いてください。');
-  console.error('使い方: ichiki publish-mockup [置き先] [--remove]');
+  console.error('置き先を指定してください。');
+  console.error('使い方: ichiki publish-mockup <置き先> [--remove]');
+  console.error('  例: ichiki publish-mockup /path/to/検証サーバ/mockup');
   process.exit(2);
 }
 
@@ -100,8 +90,7 @@ function main() {
 
   console.log(`モックを置きました: ${dest}`);
   console.log(`  ${n} ファイル`);
-  const base = (conf.site_url || '').replace(/\/$/, '');
-  if (base) console.log(`  ${base}/${path.basename(dest)}/`);
+
   if (noRobots.length) {
     console.log('');
     console.log(`※ <meta name="robots" content="noindex"> が無いページが ${noRobots.length}件あります。`);
@@ -109,7 +98,7 @@ function main() {
     console.log('   検索エンジンに拾われる可能性があります。モックに meta を足してください。');
   }
   console.log('');
-  console.log('検収が終わったら `ichiki publish-mockup --remove` で消してください。');
+  console.log(`見せ終わったら \`ichiki publish-mockup ${positional[0]} --remove\` で消してください。`);
 }
 
 main();
