@@ -1,45 +1,84 @@
 ---
-description: mockupをスキャンして acf-map.yaml と 案件用 CLAUDE.md を生成する（Ichiki Phase 0）
+description: モックアップをスキャンして acf-map.yaml と案件用 CLAUDE.md を生成する（Ichiki Phase 0）
 argument-hint: <mockup-dir> [project-name]
-allowed-tools: Bash(node:*), Bash(npx:*), Read, Write, Edit
+allowed-tools: Bash(node:*), Read, Write, Edit
 ---
 
 # /setup — Ichiki Phase 0
 
-mockup を WordPress 化する準備として、mockup をスキャンし、ACFフィールドの台帳 `acf-map.yaml` と案件用 `CLAUDE.md` を生成する。
+モックアップをスキャンし、ACF フィールドの台帳 `acf-map.yaml` と案件用 `CLAUDE.md` を出す。
 
 引数:
-- `$1` = mockup ディレクトリ（必須）
-- `$2` = プロジェクト名（任意。省略時はディレクトリ名）
+
+- `$1` = モックのディレクトリ（省略時は `.ichiki.json` の `mockup`）
+- `$2` = プロジェクト名（省略時はモックの位置から導く）
+
+## この工程で AI は判断しない
+
+scan は**宣言（`data-*`）を読むだけ**で、推測しない。同じモックなら毎回同じ出力になる。
+
+以前は、クラス名の部分一致で hero を判定したり、祖先を遡ってセクション名を決めたりしていた。
+そのため `/setup` の手順に「装飾タブの判定をレビューする」「命名を確認する」という
+**人が推測を後始末する工程**があった。宣言を読む方式に変えたので、どちらも消えた。
 
 ## 手順
 
-1. 入力確認
-   - `$1` が無ければ、mockup ディレクトリを尋ねて中断する。
+1. **モックが制約語彙に適合しているか確かめる。** ここが通らないと scan は動かない。
 
-2. 決定論スキャンを実行する
-   - まず次を実行する（Ichiki を `.claude/ichiki/` に vendoring している前提。パスは案件に合わせて調整する）:
-     `node ./.claude/ichiki/bin/mockup2wp.js scan $1 --out . --project $2`
-   - 失敗したら `npx mockup2wp scan $1 --out . --project $2` を試す。
-   - 生成された `acf-map.yaml` と `CLAUDE.md` を読む。
+   ```bash
+   node ./.claude/ichiki/bin/ichiki.js lint $1
+   ```
 
-3. 装飾タブの判定をレビューする（Phase 1「目視確認」の前倒し）
-   - `acf-map.yaml` の各ページの `decoration` と、`tab: section` のうち `element: svg`（icon）を確認する。
-   - 機能的なアイコン（隣に見出し・本文がある、リンクを持つ等）が `decoration` に入っていれば `section` へ。純粋な背景・飾りが `section`/`main` に入っていれば `decoration` へ。**分類だけ**を直す。
-   - 重要: フィールドを新規に作らない・削らない。スキャンが列挙した集合の中で `tab` と `field_name` だけ調整する（ACFカバレッジを決定論のまま保つため）。
+   error が出たら、その行を直す。**指摘そのものが作業リストになる。**
+   制約なしのモックを受け取った場合もここから始める（後付けで通る）。
 
-4. 命名を確認する
-   - `field_name` が命名規則 `{セクション名}_{要素種別}_{連番}` に沿い、人が見て分かる名前か確認する。
-   - 自動生成の無意味なセクション名（`x` 等）があれば、意味のある名前に直す。
+2. スキャンする。
 
-5. CLAUDE.md を仕上げる
-   - 200行以内・案件固有情報のみに保つ。固定ルールは `@.claude/ichiki/rules/ichiki.md` の import に任せ、本文に展開しない。
-   - 「## ACF化除外」ブロックに、明らかな除外（CSSアニメ用SVG、`<style>` 内インラインSVG、レビューで装飾と判断したもの）を追記する。
+   ```bash
+   node ./.claude/ichiki/bin/ichiki.js scan $1 . --project $2
+   ```
 
-6. サマリーを報告する
-   - ページ数、ACF候補数（タブ別）、装飾数、要確認の境界ケース一覧を簡潔に出す。
-   - 境界ケースが残っていれば、ユーザーの確認を取ってから Phase 1（Claude Code 後処理）へ進む。
+   出るもの:
+
+   | | |
+   |---|---|
+   | `acf-map.yaml` | フィールド台帳。検収成果物の入力にもなる |
+   | `coverage.json` | 全テキストノードの分類。未分類が1件でもあれば非ゼロ終了 |
+   | `CLAUDE.md` | 案件用。固定ルールは import に任せる |
+
+3. `coverage.json` の `unclaimed` を確認する。
+
+   宣言が無い＝**更新対象外の固定文言**になる。取りこぼしではないが、
+   「これらはお客様が編集できません」という合意が要る。lint の L20 と同じ集合。
+
+4. `CLAUDE.md` を仕上げる。
+
+   - 案件固有情報だけを書く。固定ルールは `@.claude/ichiki/rules/ichiki.md` と
+     `@.claude/ichiki/rules/vocabulary.md` の import に任せ、本文に展開しない。
+   - 「## ACF化除外」に、この案件だけの除外があれば書く。
+
+5. `.ichiki.json` を確認する。
+
+   **scan が作る（無ければ）。手で書かない。** `title_separator` も既定値が入る。
+
+   ```jsonc
+   {
+     "project": "…",
+     "mockup": "./",
+     "theme_dir": "…/wp-content/themes/…",   // 環境依存。空で出るので書き足す
+     "site_url": "http://localhost:10000",   // 同上
+     "title_separator": " | ",               // <title> の区切り。既定 " | "
+     "ichiki_version": "0.3.0"
+   }
+   ```
+
+   `title_separator` はモックの `<title>` がその区切りで書かれているかを
+   変換時に全ページ検査する。違えば名指しで停止するので、**モックを書くときに
+   このファイルを見る必要はない。**
 
 ## 守ること
-- スキャンの列挙結果を信頼し、フィールドの増減はしない。裁量は `tab` の調整・命名・除外宣言だけ。
-- `@.claude/ichiki/rules/ichiki.md` の固定ルールは書き換えない。案件固有情報だけを `CLAUDE.md` に書く。
+
+- **フィールドを手で増減しない。** scan が列挙した集合がすべて。
+  足りなければ**モックに宣言を足して** scan し直す。
+- `acf-map.yaml` を手で編集しない。モックが唯一の入力元。
+  手で直すと、次の scan で消える上に、変換器との突き合わせで停止する。

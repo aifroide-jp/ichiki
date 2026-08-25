@@ -1,18 +1,23 @@
 {
-  "name": "mockup2wp",
+  "name": "ichiki",
   "version": "0.3.0",
-  "description": "Ichiki Phase 0 — scan a mockup into acf-map.yaml and a per-case CLAUDE.md (deterministic, no LLM)",
-  "bin": { "mockup2wp": "bin/mockup2wp.js" },
-  "main": "src/scan.js",
+  "description": "Ichiki — 制約付きモックアップから WordPress クラシックテーマを決定的に生成し、検証・検収まで通す",
+  "bin": {
+    "ichiki": "bin/ichiki.js"
+  },
   "scripts": {
-    "scan": "node bin/mockup2wp.js scan",
-    "demo": "node bin/mockup2wp.js scan fixture --out out --project nature-kitakyushu",
-    "test": "node test/run.js",
-    "test:update": "node test/run.js --update"
+    "test": "node test/run.js && node test/check-rule-sync.js && node test/verify-rules.js",
+    "test:update": "node test/run.js --update",
+    "install:browsers": "npx playwright install chromium"
   },
   "dependencies": {
     "cheerio": "1.0.0",
-    "js-yaml": "4.1.0"
+    "js-yaml": "4.1.0",
+    "pa11y": "^8.0.0",
+    "pixelmatch": "^5.3.0",
+    "playwright": "^1.44.0",
+    "pngjs": "^7.0.0",
+    "serve-handler": "^6.1.5"
   },
   "devDependencies": {
     "pa11y-ci": "^3.1.0"

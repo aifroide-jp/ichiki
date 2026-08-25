@@ -1,0 +1,427 @@
+#!/usr/bin/env node
+/**
+ * visual-diff.js
+ * モックアップ（ローカルサーブ）と WP ローカルをページごとに
+ * スクリーンショット比較し、HTML レポートを生成する。
+ *
+ * 使い方:
+ *   node diff.js                        # デスクトップ (1280px) 全ページ
+ *   node diff.js --mobile               # モバイル (375px)
+ *   node diff.js --both                 # 両方
+ *   node diff.js --only=トップ,全体像    # ラベル部分一致・カンマ区切りで複数指定可
+ */
+
+const http        = require('http');
+const path        = require('path');
+const fs          = require('fs');
+const { chromium } = require('playwright');
+const serveHandler = require('serve-handler');
+const { PNG }      = require('pngjs');
+const { expandUrls } = require('../shared/site-urls');
+const pixelmatch   = require('pixelmatch');
+
+
+// ── 設定 ────────────────────────────────────────────────────────────
+// 案件ごとに違うものは全部引数で受ける。
+//   node src/visual/diff.js <モックルート> <比較先URL> [出力先] [--mobile|--both|--only=…]
+//
+// 比較先は URL であればよい。WordPress でも、`ichiki serve` で配った旧モックでもよい。
+//   WP と比べる     : ichiki diff <モック> http://localhost:10009
+//   旧モックと比べる: ichiki serve . 18081 & ichiki diff <モック> http://localhost:18081
+// 以前は後者専用に compare.js があったが、比較先が URL かローカルパスかの違いしかなく、
+// ページ一覧はハードコード・pairs.json は読まれずに放置されていたので統合した。
+const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+if (cliArgs.length < 2) {
+  console.error('使い方: node src/visual/diff.js <モックルート> <比較先URL> [出力先]');
+  process.exit(2);
+}
+const MOCKUP_ROOT = path.resolve(cliArgs[0]);
+const WP_BASE     = cliArgs[1].replace(/\/$/, '');
+const MOCKUP_PORT = 18080;
+const MOCKUP_BASE = `http://localhost:${MOCKUP_PORT}`;
+const REPORT_DIR  = path.resolve(cliArgs[2] || path.join(process.cwd(), 'visual-diff-report'));
+const THRESHOLD   = 0.1;   // pixelmatch 許容誤差 (0〜1)
+
+// 案件固有の撮影前 CSS（.ichiki.json の visual.freeze_css）。
+// スライドショーの1枚目を必ず出す等、案件のマークアップに依存する調整をここに書く。
+const { readConfig } = require('../shared/project-config');
+const EXTRA_FREEZE_CSS = (() => {
+  const { conf } = readConfig(MOCKUP_ROOT);
+  const v = (conf.visual && conf.visual.freeze_css) || '';
+  return Array.isArray(v) ? v.join('\n') : String(v);
+})();
+
+const args    = process.argv.slice(2);
+const MOBILE  = args.includes('--mobile');
+const BOTH    = args.includes('--both');
+const DESKTOP = !MOBILE || BOTH;
+const ONLY    = (args.find(a => a.startsWith('--only=')) || '').slice('--only='.length);
+const ONLY_LABELS  = ONLY ? ONLY.split(',').map(s => s.trim()).filter(Boolean) : [];
+// ページ一覧は**モックから導く**。手書きの一覧は取りこぼす
+// （実測: pairs.json は12ページ中6ページしか並べておらず、
+//  残り6ページの差分が誰にも見えていなかった）。
+// 比較先が WordPress なら、URL はパーマリンクを REST で引く（shared/site-urls.js）。
+// verify:live と同じ関数なので、両者が見るページ集合は定義上一致する。
+function filterOnly(pages) {
+  return ONLY_LABELS.length ? pages.filter((p) => ONLY_LABELS.some((l) => p.label.includes(l))) : pages;
+}
+
+const VIEWPORTS = [
+  ...(DESKTOP ? [{ name: 'desktop', width: 1280, height: 900 }] : []),
+  ...(MOBILE || BOTH ? [{ name: 'mobile', width: 375,  height: 812 }] : []),
+];
+
+// ── ローカルサーバー起動 ────────────────────────────────────────────
+function startMockupServer() {
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) =>
+      serveHandler(req, res, { public: MOCKUP_ROOT })
+    );
+    server.listen(MOCKUP_PORT, () => {
+      console.log(`[mockup server] http://localhost:${MOCKUP_PORT}`);
+      resolve(server);
+    });
+  });
+}
+
+// ── lazy 画像をすべてロードさせるスクロール ──────────────────────────
+async function scrollToLoadLazy(page) {
+  await page.evaluate(async () => {
+    await new Promise((resolve) => {
+      const distance = 400;
+      const delay    = 80;
+      const timer = setInterval(() => {
+        window.scrollBy(0, distance);
+        if (window.scrollY + window.innerHeight >= document.body.scrollHeight) {
+          clearInterval(timer);
+          window.scrollTo(0, 0);
+          resolve();
+        }
+      }, delay);
+    });
+  });
+  // スクロール後に残りのネットワークが落ち着くまで待つ
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.waitForTimeout(400);
+}
+
+// ── 時間差で結果が揺れる要素を撮影前に固定する ───────────────────────
+// 撮影前に「時間で動くもの」を止める。
+// 見た目の等価性を見たいのであって、タイミングを見たいのではない。
+//
+// 案件固有の class 名（.hero-slide 等）はここに書かない。**設定から渡す。**
+// 焼き込んでいた頃は、別案件で使うと効かないうえに、
+// 何が案件固有で何が汎用かがコードを読まないと分からなかった。
+const FREEZE_CSS = `
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+`;
+
+async function freezeForScreenshot(page) {
+  await page.addStyleTag({ content: FREEZE_CSS + EXTRA_FREEZE_CSS }).catch(() => {});
+  await page
+    .evaluate(() => {
+      // JS のタイマーで進むスライドショーは CSS では止まらない。
+      // 止めないと、2枚のスクショで別のスライドが写って差分だらけになる。
+      for (let i = 1; i < 10000; i++) window.clearInterval(i);
+      // 遅延読み込みを全部読ませる（fullPage 撮影でも下部が空のまま写ることがある）
+      document.querySelectorAll('img[loading="lazy"]').forEach((im) => im.setAttribute('loading', 'eager'));
+    })
+    .catch(() => {});
+}
+
+// ── スクリーンショット取得 ──────────────────────────────────────────
+async function screenshot(page, url, outPath) {
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await freezeForScreenshot(page);
+    await scrollToLoadLazy(page);
+    await page.screenshot({ path: outPath, fullPage: true });
+    return true;
+  } catch (e) {
+    console.warn(`  [skip] ${url} — ${e.message}`);
+    return false;
+  }
+}
+
+// ── pixelmatch でピクセル差分 ───────────────────────────────────────
+function diffImages(imgAPath, imgBPath, outPath) {
+  if (!fs.existsSync(imgAPath) || !fs.existsSync(imgBPath)) return null;
+
+  const imgA = PNG.sync.read(fs.readFileSync(imgAPath));
+  const imgB = PNG.sync.read(fs.readFileSync(imgBPath));
+
+  // 高さを揃える（短い方を伸ばす）
+  const width  = Math.max(imgA.width,  imgB.width);
+  const height = Math.max(imgA.height, imgB.height);
+
+  const padded = (src) => {
+    if (src.width === width && src.height === height) return src;
+    const out = new PNG({ width, height });
+    PNG.bitblt(src, out, 0, 0, src.width, src.height, 0, 0);
+    return out;
+  };
+
+  const a = padded(imgA);
+  const b = padded(imgB);
+  const diff = new PNG({ width, height });
+
+  const numDiff = pixelmatch(
+    a.data, b.data, diff.data,
+    width, height,
+    { threshold: THRESHOLD, includeAA: false }
+  );
+
+  fs.writeFileSync(outPath, PNG.sync.write(diff));
+
+  const total   = width * height;
+  const pct     = ((numDiff / total) * 100).toFixed(2);
+  return { numDiff, total, pct };
+}
+
+// ── img → base64 data URI ───────────────────────────────────────────
+function toDataURI(filePath) {
+  if (!fs.existsSync(filePath)) return '';
+  const data = fs.readFileSync(filePath).toString('base64');
+  return `data:image/png;base64,${data}`;
+}
+
+// ── HTML レポート生成 ──────────────────────────────────────────────
+function buildReport(results) {
+  const rows = results.map(r => {
+    const badge = (pct) => {
+      const n = parseFloat(pct);
+      const color = n < 1 ? '#2e7d32' : n < 5 ? '#f57f17' : '#c62828';
+      return `<span style="background:${color};color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;">${pct}%</span>`;
+    };
+    return r.viewports.map(v => `
+      <tr>
+        <td>${r.label}</td>
+        <td>${v.name === 'mobile' ? 'スマホ' : 'パソコン'}</td>
+        <td>${v.result ? badge(v.result.pct) : '<span style="color:#999">撮れず</span>'}</td>
+        <td><a href="${v.mockupImg}" target="_blank"><img src="${v.mockupImg}" style="max-width:280px;border:1px solid #ddd;"></a></td>
+        <td><a href="${v.wpImg}"     target="_blank"><img src="${v.wpImg}"     style="max-width:280px;border:1px solid #ddd;"></a></td>
+        <td><a href="${v.diffImg}"   target="_blank"><img src="${v.diffImg}"   style="max-width:280px;border:1px solid #ddd;"></a></td>
+      </tr>`).join('');
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>見た目の比較</title>
+<style>
+body { font-family: sans-serif; font-size: 14px; margin: 0; padding: 20px; background: #f5f5f5; }
+h1 { color: #2c5f2d; }
+table { border-collapse: collapse; width: 100%; background: #fff; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; vertical-align: top; }
+th { background: #2c5f2d; color: #fff; white-space: nowrap; }
+tr:hover td { background: #f9f9f9; }
+</style>
+</head>
+<body>
+<h1>見た目の比較</h1>
+<p>モック <code>${path.relative(process.cwd(), MOCKUP_ROOT) || '.'}</code> ↔ 比較先 <code>${WP_BASE}</code></p>
+<p>差分の許容値 ${THRESHOLD} / 生成 ${new Date().toLocaleString('ja-JP')}</p>
+<p style="background:#fff8e1;border-left:4px solid #f9a825;padding:8px 12px;">
+一覧ページは、モックが見本を何枚も並べているのに対し比較先は実際の件数しか出さないため、
+差分が大きく出ます。レイアウトの不具合とは限りません。</p>
+<table>
+<thead><tr><th>ページ</th><th>画面幅</th><th>差分</th><th>モック</th><th>比較先</th><th>違うところ</th></tr></thead>
+<tbody>${rows}</tbody>
+</table>
+</body>
+</html>`;
+
+  // **機械が読むのは JSON。** HTML は人が見るもの。
+  // 以前は検収（testspec）が HTML を正規表現で読んでいて、
+  // 見出しを日本語にしただけで壊れた。表示と機械可読を分ける。
+  fs.writeFileSync(
+    path.join(REPORT_DIR, 'results.json'),
+    JSON.stringify(
+      results.flatMap((r) =>
+        r.viewports.map((v) => ({ label: r.label, viewport: v.name, pct: v.result ? Number(v.result.pct) : null }))
+      ),
+      null,
+      2
+    )
+  );
+
+  const outPath = path.join(REPORT_DIR, 'index.html');
+  fs.writeFileSync(outPath, html);
+  console.log(`\n✅ レポート: ${outPath}`);
+}
+
+// モックを読んで比較対象を作る。
+//   WordPress が相手  → パーマリンクを REST で引く（verify:live と同じ関数）
+//   モックが相手      → 同じ相対パス（retrofit の前後比較）。
+//                       片側にしか無いページは、まだ変換していないページなので数えて報告する
+// 表示順。page-order は cheerio でモックを読むので、ここで一度だけ作る。
+function orderRank(root) {
+  try {
+    const { findHtmlFiles } = require('../shared/discover');
+    const { loadPage } = require('../converter/lib/load-page');
+    const { ErrorCollector } = require('../converter/lib/errors');
+    const { buildModel } = require('../converter/lib/model');
+    const { orderOf } = require('../shared/page-order');
+    const pages = findHtmlFiles(root).map((f) => loadPage(f.abs, f.rel));
+    const errors = new ErrorCollector();
+    errors.allowUnresolvedLinks = true;
+    buildModel(pages, errors);
+    return orderOf(pages).order;
+  } catch {
+    return new Map(); // 並べられなくても比較はできる。順が既定に戻るだけ
+  }
+}
+
+async function buildPages() {
+  const mockPages = readMockupPages(MOCKUP_ROOT);
+  // 人が読むレポートなので、サイトの構造順に並べる（shared/page-order.js）。
+  // 探索の順（ファイルパス順）だと、詳細が一覧より前に来たりトップが中盤に来る。
+  const ord = orderRank(MOCKUP_ROOT);
+  mockPages.sort((a, b) => (ord.get(a.rel) ?? Infinity) - (ord.get(b.rel) ?? Infinity));
+  const isWp = await fetchJson(`${WP_BASE}/wp-json/wp/v2/pages?per_page=1`).then(
+    (j) => Array.isArray(j),
+    () => false
+  );
+
+  if (isWp) {
+    const targets = await expandUrls(mockPages, WP_BASE, fetchJson, (kind, msg) =>
+      console.warn(`  [skip] ${msg}`)
+    );
+    return targets.map((t) => ({
+      label: t.url === '/' ? 'front' : t.url.replace(/^\/|\/$/g, ''),
+      mockup: t.page.rel,
+      wp: t.url,
+    }));
+  }
+
+  // 相手もモック。パスが同じものだけ比べる。
+  const out = [];
+  const missing = [];
+  for (const p of mockPages) {
+    const ok = await fetchStatus(`${WP_BASE}/${p.rel}`);
+    if (ok) out.push({ label: p.rel.replace(/\.html$/, ''), mockup: p.rel, wp: `/${p.rel}` });
+    else missing.push(p.rel);
+  }
+  if (missing.length) {
+    console.log(`  ※ 比較先に無いページ ${missing.length}件（未変換）: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ' …' : ''}`);
+  }
+  return out;
+}
+
+function readMockupPages(root) {
+  const cheerio = require('cheerio');
+  const out = [];
+  const walk = (d) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const f = path.join(d, e.name);
+      // 隠しディレクトリを飛ばすのは discover.js と同じ規則。
+      // 飛ばさないと .claude/ichiki/test/fixture の HTML まで比較対象に入る。
+      // 合意デザイン（.ichiki/mockup-before）もここで自動的に外れる。
+      if (e.isDirectory()) {
+        if (e.name !== 'node_modules' && !e.name.startsWith('.')) walk(f);
+        continue;
+      }
+      if (!e.name.endsWith('.html')) continue;
+      const rel = path.relative(root, f).split(path.sep).join('/');
+      const $ = cheerio.load(fs.readFileSync(f, 'utf8'));
+      const b = $('body');
+      const kind = b.attr('data-page');
+      if (!kind) continue;
+      out.push({ rel, kind, cpt: b.attr('data-cpt') || null, pageId: b.attr('data-page-id') || null, variant: b.attr('data-page-variant') || null });
+    }
+  };
+  walk(root);
+  return out.sort((a, b) => a.rel.localeCompare(b.rel));
+}
+
+function fetchJson(url) {
+  return new Promise((resolve, reject) => {
+    const mod = url.startsWith('https') ? require('https') : http;
+    mod.get(url, (res) => {
+      let d = '';
+      res.on('data', (c) => (d += c));
+      res.on('end', () => { try { resolve(JSON.parse(d)); } catch (e) { reject(e); } });
+    }).on('error', reject);
+  });
+}
+
+function fetchStatus(url) {
+  return new Promise((resolve) => {
+    const mod = url.startsWith('https') ? require('https') : http;
+    mod.get(url, (res) => { res.resume(); resolve(res.statusCode >= 200 && res.statusCode < 400); }).on('error', () => resolve(false));
+  });
+}
+
+// ── メイン ────────────────────────────────────────────────────────
+(async () => {
+  fs.mkdirSync(REPORT_DIR, { recursive: true });
+
+  const server  = await startMockupServer();
+  const browser = await chromium.launch();
+
+  const TARGET_PAGES = filterOnly(await buildPages());
+  console.log(`比較対象: ${TARGET_PAGES.length}ページ`);
+  // 比較した対象を出力側に残す。testspec が「モックのどのページがどのラベルか」を
+  // 引くのに要る。以前は案件側に手書きの pages.json を置いて**入力**にしていたが、
+  // 手書きゆえに取りこぼした（12ページ中6ページしか並んでいなかった）。
+  fs.writeFileSync(path.join(REPORT_DIR, 'pages.json'), JSON.stringify(TARGET_PAGES, null, 2));
+
+  const results = [];
+
+  for (const pageInfo of TARGET_PAGES) {
+    console.log(`\n[${pageInfo.label}]`);
+    const pageResult = { label: pageInfo.label, viewports: [] };
+
+    for (const vp of VIEWPORTS) {
+      const slug = pageInfo.label.replace(/[^\w　-鿿]/g, '_');
+      const prefix = `${slug}_${vp.name}`;
+
+      const mockupImg = path.join(REPORT_DIR, `${prefix}_mockup.png`);
+      // 比較先は WordPress とは限らない（旧モックのこともある）ので target と呼ぶ。
+      const wpImg     = path.join(REPORT_DIR, `${prefix}_target.png`);
+      const diffImg   = path.join(REPORT_DIR, `${prefix}_diff.png`);
+
+      const context = await browser.newContext({
+        viewport: { width: vp.width, height: vp.height },
+      });
+      const pg = await context.newPage();
+
+      const mockupUrl = `${MOCKUP_BASE}/${pageInfo.mockup}`;
+      const wpUrl     = `${WP_BASE}${pageInfo.wp}`;
+
+      console.log(`  ${vp.name}: ${mockupUrl}`);
+      const okMockup = await screenshot(pg, mockupUrl, mockupImg);
+
+      console.log(`  ${vp.name}: ${wpUrl}`);
+      const okWp = await screenshot(pg, wpUrl, wpImg);
+
+      let result = null;
+      if (okMockup && okWp) {
+        result = diffImages(mockupImg, wpImg, diffImg);
+        console.log(`  diff: ${result.pct}% (${result.numDiff}px)`);
+      }
+
+      await context.close();
+
+      pageResult.viewports.push({
+        name: vp.name,
+        result,
+        mockupImg: path.relative(REPORT_DIR, mockupImg),
+        wpImg:     path.relative(REPORT_DIR, wpImg),
+        diffImg:   path.relative(REPORT_DIR, diffImg),
+      });
+    }
+
+    results.push(pageResult);
+  }
+
+  await browser.close();
+  server.close();
+
+  buildReport(results);
+})();

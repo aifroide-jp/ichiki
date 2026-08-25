@@ -1,233 +1,145 @@
-project: demo
-generated_at: '2026-06-11'
+project: fixture
+generated_by: ichiki scan（変換器のモデルから生成）
 common:
+  - id: header
+    fields: []
   - id: footer
     fields:
-      - element: p
-        field_name: footer_text
-        tab: section
+      - field_name: footer_copyright
         type: textarea
-        default: © Urban Nature Kitakyushu
+        default: © 2026 アーバンネイチャー北九州
 pages:
-  - id: contact
-    title: お問合せ｜アーバンネイチャー北九州
-    file: contact.html
-    sections:
-      - id: page_header
-        fields:
-          - element: h1
-            field_name: page_header_title
-            tab: section
-            type: text
-            default: お問合せページ
-          - element: p
-            field_name: page_header_text
-            tab: section
-            type: textarea
-            default: お気軽にご連絡ください。
-      - id: section_0
-        fields:
-          - element: h2
-            field_name: section_0_title
-            tab: section
-            type: text
-            default: よくあるご質問
-      - id: white
-        fields:
-          - element: h2
-            field_name: white_title
-            tab: section
-            type: text
-            default: ご利用案内
-          - element: p
-            field_name: white_text
-            tab: section
-            type: textarea
-            default: サービスのご案内です。
-      - id: sec_2024
-        fields:
-          - element: h2
-            field_name: sec_2024_title
-            tab: section
-            type: text
-            default: 2024年の活動
-          - element: p
-            field_name: sec_2024_text
-            tab: section
-            type: textarea
-            default: 昨年の活動実績です。
-      - id: contact
-        fields:
-          - element: h1
-            field_name: contact_title
-            tab: section
-            type: text
-            default: お問合せ
-          - element: p
-            field_name: contact_text
-            tab: section
-            type: textarea
-            default: 下記フォームよりお問い合わせください。
-    nav:
-      - selector: nav.global-nav
-        links:
-          - text: トップ
-            href: index.html
-          - text: 活動について
-            href: about.html
-          - text: お問合せ
-            href: contact.html
-    forms:
-      - action: /submit
-        method: post
-        fields:
-          - name: your-name
-            tag: input
-            type: text
-            placeholder: お名前
-          - name: your-email
-            tag: input
-            type: email
-            placeholder: メールアドレス
-          - name: your-message
-            tag: textarea
-            type: textarea
-            placeholder: お問い合わせ内容
-    decoration: []
-    meta:
-      title: お問合せ｜アーバンネイチャー北九州
-      description: お問合せフォーム
   - id: index
     title: アーバンネイチャー北九州
     file: index.html
+    page_type: front
+    css:
+      - css/base.css
+      - css/page/front.css
     sections:
       - id: hero
         fields:
-          - element: h1
-            field_name: hero_title
-            tab: main
+          - field_name: hero_title
             type: text
             default: 北九州の自然と暮らす
-          - element: p
-            field_name: hero_text
-            tab: main
+          - field_name: hero_lead
             type: textarea
             default: ネイチャーポジティブを地域から進めます。
-          - element: img
-            field_name: hero_image
-            tab: main
+          - field_name: hero_image
             type: image
-            default: /assets/hero.jpg
+            default: images/hero.jpg
             alt: 北九州の自然
-      - id: features
+      - id: spots
         fields:
-          - element: svg
-            field_name: features_icon_1
-            tab: section
-            type: image
-            default: <inline-svg>
-          - element: h3
-            field_name: features_title_1
-            tab: section
+          - field_name: spots_title
             type: text
-            default: 活動拠点
-          - element: p
-            field_name: features_text_1
-            tab: section
-            type: textarea
-            default: 市内各地の拠点を紹介します。
-          - element: svg
-            field_name: features_icon_2
-            tab: section
-            type: image
-            default: <inline-svg>
-          - element: h3
-            field_name: features_title_2
-            tab: section
-            type: text
-            default: 地域との繋がり
-          - element: p
-            field_name: features_text_2
-            tab: section
-            type: textarea
-            default: 市民や企業と共に取り組みます。
-          - element: svg
-            field_name: features_icon_3
-            tab: section
-            type: image
-            default: <inline-svg>
-          - element: h3
-            field_name: features_title_3
-            tab: section
-            type: text
-            default: 活動事例
-          - element: p
-            field_name: features_text_3
-            tab: section
-            type: textarea
-            default: これまでの取り組みを掲載します。
-      - id: section_2
-        fields:
-          - element: h2
-            field_name: section_2_title
-            tab: section
-            type: text
-            default: お知らせ
-          - element: p
-            field_name: section_2_text
-            tab: section
-            type: textarea
-            default: 最新のお知らせです。
-          - element: img
-            field_name: section_2_image
-            tab: section
-            type: image
-            default: /assets/news.jpg
-            alt_missing: true
-      - id: section_3
-        fields:
-          - element: h2
-            field_name: section_3_title
-            tab: section
-            type: text
-            default: 動画一覧
-          - element: p
-            field_name: section_3_text
-            tab: section
-            type: textarea
-            default: 動画の説明です。
-          - element: img
-            field_name: section_3_image
-            tab: section
-            type: image
-            default: /assets/video-thumb.jpg
-            alt_missing: true
+            default: 自然スポット
+    loops:
+      - cpt: spot
+        order: date_desc
+        count: 3
+        repeat: 1
+        item_fields:
+          - hero_image
+          - hero_title
     nav:
-      - selector: nav.global-nav
+      - location: global
         links:
           - text: トップ
             href: index.html
-          - text: 活動について
-            href: about.html
           - text: お問合せ
             href: contact.html
     forms: []
     decoration:
-      - selector: svg.bg-wave
-        reason: class*="bg-wave"
-      - selector: div
-        reason: background-image
-      - selector: div.bg-section
-        reason: background-image
+      - selector: div.bg-overlay
+        reason: data-deco
     meta:
       title: アーバンネイチャー北九州
       description: 北九州の自然と暮らすためのネイチャーポジティブ・サイト
-      ogp:
-        og:title: アーバンネイチャー北九州
-        og:image: /assets/ogp.jpg
-coverage:
-  acf_candidates: 28
-  decoration: 3
-  by_tab:
-    main: 3
-    section: 25
+  - id: contact
+    title: お問合せ | アーバンネイチャー北九州
+    file: contact.html
+    page_type: page
+    page_id: contact
+    css:
+      - css/base.css
+      - css/page/contact.css
+    sections:
+      - id: contact_form
+        fields:
+          - field_name: hero_title
+            type: text
+            default: お問合せ
+          - field_name: hero_lead
+            type: textarea
+            default: 下記フォームよりお問い合わせください。
+    nav:
+      - location: global
+        links:
+          - text: トップ
+            href: index.html
+          - text: お問合せ
+            href: contact.html
+    forms:
+      - id: contact
+        fields:
+          - name: your-name
+            tag: input
+            type: text
+            required: true
+            placeholder: お名前
+          - name: your-email
+            tag: input
+            type: email
+            required: true
+            placeholder: メールアドレス
+          - name: your-message
+            tag: textarea
+            type: textarea
+            required: true
+            placeholder: お問い合わせ内容
+          - name: privacy
+            tag: input
+            type: checkbox
+            required: true
+            placeholder: ''
+    decoration: []
+    meta:
+      title: お問合せ | アーバンネイチャー北九州
+      description: アーバンネイチャー北九州へのお問合せ
+  - id: spot
+    title: 平尾台 | アーバンネイチャー北九州
+    file: spot.html
+    page_type: single
+    cpt: spot
+    css:
+      - css/base.css
+      - css/page/spot.css
+    sections:
+      - id: detail
+        fields:
+          - field_name: hero_image
+            type: image
+            default: images/spot.jpg
+            alt: 平尾台の草原
+          - field_name: hero_title
+            type: text
+            default: 平尾台
+          - field_name: hero_lead
+            type: textarea
+            default: 九州最大のカルスト台地。
+          - field_name: overview_body
+            type: wysiwyg
+            default: <p>石灰岩の羊群原が広がり、季節ごとに異なる野草が見られます。</p>
+    nav:
+      - location: global
+        links:
+          - text: トップ
+            href: index.html
+          - text: お問合せ
+            href: contact.html
+    forms: []
+    decoration: []
+    meta:
+      title: 平尾台 | アーバンネイチャー北九州
+      description: カルスト台地・平尾台の自然
