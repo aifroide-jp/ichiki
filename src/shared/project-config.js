@@ -33,12 +33,24 @@ const DEFAULT_BEFORE_DIR = '.ichiki/mockup-before';
 const DEFAULT_PLUGINS = ['advanced-custom-fields', 'contact-form-7', 'safe-svg'];
 
 // モックのディレクトリから上へ辿って探す。見つからなければ cwd を見る。
-// gate は案件ルートから叩かれるが、convert 単体はモックのパスだけ渡されることがある。
+// 上へ辿るのは、モックが案件の下位にあることがあるため
+// （convert 単体はモックのパスだけ渡され、設定は案件ルートにある）。
+//
+// **案件の境界（.git があるところ）で止める。**
+// 際限なく辿ると、案件の外で叩いたときに親ディレクトリの別案件の設定を拾う。
+// 実測: /tmp で lint を叩いたら、前の検証で置いた /tmp/.ichiki.json を拾い、
+// 存在しない proposal/mockup-real を読もうとして落ちた。
 function findConfigPath(startDir) {
   let dir = path.resolve(startDir || process.cwd());
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 12; i++) {
     const f = path.join(dir, FILENAME);
     if (fs.existsSync(f)) return f;
+    // ここが案件のルート。これより上は別の案件（か、案件ですらない）。
+    // **submodule では止めない。** submodule の .git は「ファイル」で、
+    // 中身は親リポジトリを指す gitdir 参照。案件の境界ではない
+    // （実測: .claude/ichiki の中から叩くと設定が見つからなくなった）。
+    const dotGit = path.join(dir, '.git');
+    if (fs.existsSync(dotGit) && fs.statSync(dotGit).isDirectory()) break;
     const up = path.dirname(dir);
     if (up === dir) break;
     dir = up;
