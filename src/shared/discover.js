@@ -30,6 +30,14 @@ function notMockupDirs(rootDir) {
 }
 
 function findHtmlFiles(rootDir) {
+  // 無いディレクトリを渡されたら、Node の ENOENT スタックではなく理由を出す。
+  // 実測: .ichiki.json の mockup が実在しない場所を指していて、
+  // fs.readdirSync の生エラーで落ちていた（何が悪いのか分からない画面）。
+  if (!fs.existsSync(rootDir)) {
+    console.error(`モックのディレクトリがありません: ${rootDir}`);
+    console.error('.ichiki.json の mockup が実在する場所を指しているか確認してください。');
+    process.exit(2);
+  }
   const results = [];
   const excluded = new Set(notMockupDirs(rootDir).map((d) => path.resolve(rootDir, d)));
 

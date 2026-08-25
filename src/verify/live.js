@@ -28,10 +28,18 @@ const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 // パスはカレントディレクトリ基準で解決する（lint / scan / convert と揃える）。
 // ROOT 基準にしていたため `proposal/mockup-real` を渡すと
 // proposal/proposal/mockup-real を見に行って落ちていた。
-const MOCKUP = args[0]
-  ? path.resolve(process.cwd(), args[0])
-  : path.join(ROOT, 'mockup-real');
-const SITE = (args[1] || 'http://localhost:10004').replace(/\/$/, '');
+// 既定は**案件の設定から取る**。本体に案件の値を焼き込まない
+// （実測: mockup の既定が移設で消えた `mockup-real`、site の既定が
+//  検証案件のポート 10004 のままだった。他案件で黙って違う先を見る）。
+const { readConfig } = require('../shared/project-config');
+const CONF = readConfig(process.cwd()).conf;
+const MOCKUP = path.resolve(process.cwd(), args[0] || CONF.mockup || './');
+const SITE = (args[1] || CONF.site_url || '').replace(/\/$/, '');
+if (!SITE) {
+  console.error('サイトの URL が分かりません。引数で渡すか、.ichiki.json に site_url を書いてください。');
+  console.error('使い方: ichiki verify:live [mockup] [URL]');
+  process.exit(2);
+}
 const JSON_MODE = process.argv.includes('--json');
 
 const findings = [];

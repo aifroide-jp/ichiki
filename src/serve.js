@@ -1,12 +1,12 @@
 'use strict';
 
-// proposal/mockup-real を配信するだけの静的サーバ（依存なし）。
+// モックを配信するだけの静的サーバ（依存なし）。
 // python3 -m http.server はプレビュー起動時のサンドボックスで os.getcwd() が
 // EPERM になり起動できなかったため、Node で置き換えている。
 //
-//   node proposal/serve.js [rootDir] [port]
+//   ichiki serve [rootDir] [port]
 //
-// 既定のルートは proposal/mockup-real。モックの内部参照はページ階層に応じた相対パス
+// 既定のルートは .ichiki.json の mockup。モックの内部参照はページ階層に応じた相対パス
 // （vocabulary.md 7章・8章）なので、モックのルートをそのままドキュメントルートに
 // 据えないと css/ images/ が解決しない。
 
@@ -14,7 +14,17 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const rootDir = path.resolve(process.argv[2] || path.join(__dirname, 'mockup-real'));
+// 既定は案件の設定から。本体に案件のディレクトリ名を焼き込まない
+// （'mockup-real' は移設で消えた名前で、既定として機能していなかった）。
+const rootDir = (() => {
+  if (process.argv[2]) return path.resolve(process.cwd(), process.argv[2]);
+  try {
+    const { readConfig } = require('./shared/project-config');
+    return path.resolve(process.cwd(), readConfig(process.cwd()).conf.mockup || './');
+  } catch {
+    return process.cwd();
+  }
+})();
 const port = Number(process.argv[3] || 8080);
 
 const MIME = {

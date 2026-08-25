@@ -20,12 +20,16 @@ function main() {
   const allowUnresolved = args.includes('--allow-unresolved-links');
   const targetArg = args.find((a) => !a.startsWith('--'));
 
-  if (!targetArg) {
-    console.error('Usage: node src/lint/lint.js <対象ディレクトリ> [--json] [--allow-unresolved-links]');
+  // 引数を省いたら案件の設定から取る（他のコマンドと揃える）。
+  const { readConfig } = require('../shared/project-config');
+  const target = targetArg || readConfig(process.cwd()).conf.mockup;
+  if (!target) {
+    console.error('モックの場所が分かりません。引数で渡すか、.ichiki.json に mockup を書いてください。');
+    console.error('使い方: ichiki lint [mockup] [--json] [--allow-unresolved-links]');
     process.exit(2);
   }
 
-  const rootDir = path.resolve(process.cwd(), targetArg);
+  const rootDir = path.resolve(process.cwd(), target);
   const files = findHtmlFiles(rootDir);
   const pages = files.map((f) => loadPage(f.abs, f.rel));
 

@@ -172,10 +172,9 @@ async function main() {
   const args = process.argv.slice(2);
   const jsonMode = args.includes('--json');
   const targetArg = args.find((a) => !a.startsWith('--'));
-  const mockupDir = path.resolve(
-    process.cwd(),
-    targetArg || path.join(__dirname, '..', 'mockup')
-  );
+  // 既定は案件の設定から（本体に 'mockup' というディレクトリは無い）
+  const { readConfig } = require('../shared/project-config');
+  const mockupDir = path.resolve(process.cwd(), targetArg || readConfig(process.cwd()).conf.mockup || './');
 
   if (!fs.existsSync(mockupDir)) {
     console.error(`対象ディレクトリが見つかりません: ${mockupDir}`);

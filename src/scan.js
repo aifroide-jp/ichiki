@@ -211,7 +211,8 @@ function main() {
   const args = process.argv
     .slice(2)
     .filter((a, i, all) => a !== '--project' && all[i - 1] !== '--project' && a !== '--allow-unresolved-links');
-  const rootDir = path.resolve(process.cwd(), args[0] || path.join(__dirname, '..', 'mockup'));
+  // 既定は案件の設定から（本体に 'mockup' というディレクトリは無い）
+  const rootDir = path.resolve(process.cwd(), args[0] || readConfig(process.cwd()).conf.mockup || './');
   const outDir = path.resolve(process.cwd(), args[1] || path.join(__dirname, 'out'));
 
   const files = findHtmlFiles(rootDir);
