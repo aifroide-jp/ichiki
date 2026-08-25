@@ -158,7 +158,7 @@ function main() {
 
   if (conf.retrofit) {
     L.push('> **注意: このテーマは変換途中のモックから作られています。**');
-    L.push('> 行き先の無いリンクが残ります（下の「9. 残っているリンク切れ」を必ず確認してください）。');
+    L.push('> 行き先の無いリンクが残ります。**検収で確認してから公開してください。**');
     L.push('> 管理画面にも警告が出ます。');
     L.push('');
   }
@@ -268,49 +268,13 @@ function main() {
   L.push('管理画面の各ページの編集欄から選び直してください。');
   L.push('');
 
-  L.push('## 9. 残っているリンク切れ');
-  L.push('');
-  if (unresolved === null) {
-    L.push('> **取得できませんでした**（lint が実行できていません）。`ichiki lint` を通してから出し直してください。');
-  } else if (unresolved.length === 0) {
-    L.push('ありません。');
-  } else {
-    const inNav = unresolved.filter((u) => u.inNav);
-    const inBody = unresolved.filter((u) => !u.inNav);
-    L.push(`**${unresolved.length} 種類のリンクに行き先がありません。** 壊れ方が2通りあります。`);
-    L.push('');
-    const table = (list) => {
-      L.push('| リンク先 | 書かれているページ |');
-      L.push('|---|---|');
-      for (const u of list) {
-        const files = [...new Set(u.files)];
-        const shown = files.slice(0, 3).join('<br>') + (files.length > 3 ? `<br>ほか${files.length - 3}件` : '');
-        L.push(`| \`${u.href}\` | ${shown} |`);
-      }
-      L.push('');
-    };
-    if (inNav.length) {
-      L.push(`### ナビゲーションの中（${inNav.length}種類）— **メニュー項目ごと表示されません**`);
-      L.push('');
-      L.push('行き先が無い項目はメニューに登録されないため、画面に出ません。');
-      L.push('リンク切れにはなりませんが、**あるはずの項目が無い**状態になります。');
-      L.push('');
-      table(inNav);
-    }
-    if (inBody.length) {
-      L.push(`### 本文の中（${inBody.length}種類）— **押すと 404 になります**`);
-      L.push('');
-      L.push('死んだリンクがそのままページに残ります。');
-      L.push('');
-      table(inBody);
-    }
-    L.push('公開前にどうするか決めてください（ページを作る／リンクを外す／別のページへ向ける）。');
-    L.push('');
-    L.push('- [ ] すべてについて対応を決めた');
-  }
-  L.push('');
+  // 「残っているリンク切れ」は載せない。**リリースの手順ではない。**
+  // 本文のリンク切れは C1 の「リンク遷移」が全ページ自動判定していて、
+  // ナビの欠落は verify:live の nav-short が出す。どちらも検収の側の仕事。
+  // 同じことを2つの文書に書くと片方だけ直されてズレる（表示確認・レスポンシブで同じ判断をした）。
+  // 公開してよいかどうかは 0章の「検収が済んでいる」で担保する。
 
-  L.push('## 10. 公開前の最終確認');
+  L.push('## 9. 公開前の最終確認');
   L.push('');
   L.push('本番環境でしか確認できないことだけを挙げます（中身の確認は検収の役目）。');
   L.push('');
@@ -324,7 +288,10 @@ function main() {
   fs.writeFileSync(OUT, L.join('\n') + '\n', 'utf8');
   console.log(`リリース手順書: ${path.relative(process.cwd(), OUT)}`);
   console.log(`  ページ ${rows.length}件 / フォーム ${forms.length}件 / メニュー ${navs.length}件`);
-  console.log(`  行き先の無いリンク: ${unresolved === null ? '取得できず' : unresolved.length + '種類'}`);
+  console.log(
+    `  行き先の無いリンク: ${unresolved === null ? '取得できず' : unresolved.length + '種類'}` +
+      '（手順書には載せません。検収の「リンク遷移」と verify:live が見ています）'
+  );
   if (conf.retrofit) console.log('  ※ リバース途中である旨を先頭に入れました');
 }
 
