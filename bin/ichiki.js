@@ -73,7 +73,29 @@ function checkVersion(args) {
   }
 }
 
-function run(script, args) {
+// 依存が入っていないと、どのコマンドも「Cannot find module 'cheerio'」の
+// スタックトレース26行で落ちる。**何をすればいいか書いていない画面**を
+// 初めて触る人に見せることになるので、先に見て案内する。
+function checkDeps() {
+  if (fs.existsSync(path.join(ROOT, 'node_modules', 'cheerio'))) return;
+  console.error('Ichiki の依存が入っていません。');
+  console.error('');
+  console.error('  cd .claude/ichiki && npm install && cd ../..');
+  console.error('');
+  console.error('見た目の比較を使うときは、続けてこれも必要です（初回のみ・数分かかります）:');
+  console.error('');
+  console.error('  cd .claude/ichiki && npx playwright install chromium && cd ../..');
+  console.error('');
+  console.error('入れ終わったら `ichiki doctor` で確認できます。');
+  process.exit(2);
+}
+
+// doctor は「依存が入っているか」を診るコマンドなので、依存なしでも動く必要がある
+// （実際 fs と path しか使っていない）。ここで止めると診られない。
+const NO_DEPS_NEEDED = new Set(['doctor']);
+
+function run(script, args, name) {
+  if (!NO_DEPS_NEEDED.has(name)) checkDeps();
   const r = spawnSync('node', [script, ...args], { stdio: 'inherit' });
   process.exit(r.status === null ? 1 : r.status);
 }
@@ -108,4 +130,4 @@ if (!hit) {
   process.exit(2);
 }
 checkVersion(rest);
-run(path.join(...hit[1]), rest);
+run(path.join(...hit[1]), rest, hit[0]);
