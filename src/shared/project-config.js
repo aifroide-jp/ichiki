@@ -3,7 +3,11 @@
 // 案件設定（.ichiki.json）の読み書き。**唯一の実装。**
 //
 // モックの構造ではなく「案件の体裁・環境」を持つ。
-//   project / mockup / theme_dir / site_url / ichiki_version / plugins_required
+//   project / mockup / theme_slug / theme_dir / site_url / ichiki_version / plugins_required
+//
+//   theme_slug  … 本番に置くテーマのフォルダ名。**環境依存の theme_dir から導かない。**
+//                 theme_dir は検証環境の絶対パスで、そこから拾うと本番の
+//                 テーマ名が検証環境の都合で決まる（実測: "nkk-poc" になっていた）。
 //   title_separator ← `<title>` の区切り文字（ページごとに変わらないのでここ）
 //   retrofit        ← リバース途中であることの宣言（下記）
 //
@@ -57,6 +61,7 @@ function readConfig(startDir) {
 const ORDER = [
   'project',
   'mockup',
+  'theme_slug',
   'theme_dir',
   'site_url',
   'title_separator',

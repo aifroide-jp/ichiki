@@ -128,7 +128,9 @@ function main() {
   });
   errors.throwIfAny();
 
-  const themeSlug = path.basename(conf.theme_dir || '') || '<テーマ名>';
+  // 本番のテーマフォルダ名。**環境依存の theme_dir から導かない。**
+  // 実測: 検証環境の theme_dir を指していたため "nkk-poc" と書かれていた。
+  const themeSlug = conf.theme_slug || conf.project || '<テーマ名>';
   const plugins = conf.plugins_required || [];
   const forms = [...model.forms.keys()];
   const navs = [...model.navMap.keys()];

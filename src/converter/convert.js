@@ -130,6 +130,8 @@ function main() {
   try {
     // `<title>` の区切り文字は案件の設定（.ichiki.json）。既定は " | "。
     model = buildModel(pages, errors, { titleSeparator: conf.title_separator });
+    // テーマのフォルダ名。案件の設定から決まる（環境依存の theme_dir からは導かない）
+    model.themeSlug = conf.theme_slug || conf.project || 'theme';
 
     if (acfMapPath) {
       const map = loadAcfMap(path.resolve(acfMapPath));
@@ -161,7 +163,7 @@ function main() {
 
     // --- functions.php / style.css ---
     outputFiles.set('functions.php', generateFunctionsPhp(model, errors));
-    outputFiles.set('style.css', generateStyleCss());
+    outputFiles.set('style.css', generateStyleCss(model));
     outputFiles.set('index.php', generateIndexPhp());
 
     // --- header.php / footer.php / template-parts ---

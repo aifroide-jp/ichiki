@@ -157,6 +157,11 @@ function ensureProjectConfig(confPath, conf, rootDir, projectName, model, titleS
     next.mockup = rel === '.' ? './' : rel;
     added.push(`mockup: ${next.mockup}`);
   }
+  if (!next.theme_slug) {
+    // 本番のテーマフォルダ名。案件名をそのまま使う（英小文字・数字・ハイフン）。
+    next.theme_slug = String(next.project || 'theme').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
+    added.push(`theme_slug: ${next.theme_slug}`);
+  }
   if (next.theme_dir === undefined) { next.theme_dir = ''; added.push('theme_dir: （未設定。書いてください）'); }
   if (next.site_url === undefined) { next.site_url = ''; added.push('site_url: （未設定。書いてください）'); }
   if (next.title_separator === undefined) {

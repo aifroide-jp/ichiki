@@ -339,13 +339,19 @@ function generateIndexPhp() {
   ].join('\n');
 }
 
-function generateStyleCss() {
+// テーマの素性は**案件から決まる**。
+// 以前は "Nature Kitakyushu (Mockup Converter PoC)" と検証時の名前が焼き込まれ、
+// Description には移設で消えたパス（proposal/converter）が書いてあった。
+// そのまま本番に載ると、お客様の管理画面に PoC と表示される。
+function generateStyleCss(model) {
+  const site = (model && model.siteTitle && model.siteTitle.siteName) || 'Site';
+  const tagline = (model && model.siteTitle && model.siteTitle.tagline) || '';
   return [
     '/*',
-    'Theme Name: Nature Kitakyushu (Mockup Converter PoC)',
-    'Description: proposal/vocabulary.md 準拠モックアップから proposal/converter が決定的に生成したテーマ。',
-    'Version: 0.1.0',
-    'Text Domain: nkk',
+    `Theme Name: ${site}`,
+    `Description: ${tagline ? tagline + ' ' : ''}モックアップから Ichiki が生成したテーマ。`,
+    'Version: 1.0.0',
+    `Text Domain: ${(model && model.themeSlug) || 'theme'}`,
     '*/',
     '',
   ].join('\n');
