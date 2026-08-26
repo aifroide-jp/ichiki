@@ -29,24 +29,28 @@ Ichiki は案件リポジトリに **submodule** として入れて使う。
 git submodule add https://github.com/aifroide-jp/ichiki .claude/ichiki
 git submodule update --init --recursive
 
-# 2. 依存を入れる
-cd .claude/ichiki
-npm install
-npx playwright install chromium    # 見た目の比較を使うとき
-cd ../..
+# 2. 残りは1コマンド（依存・ブラウザ・コマンド配置・設定作成・確認）
+sh .claude/ichiki/bin/setup.sh
+```
 
-# 3. スラッシュコマンドを配置する
-mkdir -p .claude/commands
-cp .claude/ichiki/commands/*.md .claude/commands/
+最後に `.ichiki.json` の `theme_dir` と `site_url` を手で書きます。
+**機械には分からない値**（WordPress の場所と URL）なので、そこだけ残しています。
+書いたら `ichiki doctor` で確認できます。
 
-# 4. 案件設定とフィールド台帳を作る
-#    .ichiki.json が無ければ scan が作る。theme_dir と site_url は環境依存なので
-#    空で出るので、書き足す。
-node .claude/ichiki/bin/ichiki.js scan <モックのディレクトリ> <出力先>
+`setup.sh` は**何度流しても既存のファイルを壊しません**。`README.md` と `CLAUDE.md` は
+無いときだけ作ります。更新のときも同じものを流せます。
 
-# 5. 受け入れ状態を確認する
+<details><summary>setup.sh が何をしているか</summary>
+
+```bash
+cd .claude/ichiki && npm install                    # 依存
+cd .claude/ichiki && npx playwright install chromium # 見た目の比較に使う
+mkdir -p .claude/commands && cp .claude/ichiki/commands/*.md .claude/commands/
+node .claude/ichiki/bin/ichiki.js scan . .           # .ichiki.json / acf-map.yaml / CLAUDE.md / README.md
 node .claude/ichiki/bin/ichiki.js doctor
 ```
+
+</details>
 
 手順3が要るのは、**Claude Code が `.claude/commands/` しか見ない**ため。
 `.claude/ichiki/commands/` に置いても認識されないのでコピーする。

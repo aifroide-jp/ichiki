@@ -33,6 +33,44 @@ function ng(msg, how) {
   problems.push(how);
 }
 
+// 0. 手元の道具
+//
+// Ichiki の中しか見ていなかったが、揃っていないと後の工程で分かりにくく落ちる。
+// 実測: wp-cli が消えていて、seed の投入が「Could not open input file」で止まった。
+// ここで先に言えば、何が足りないか一目で分かる。
+{
+  const { spawnSync } = require('child_process');
+  const ver = (cmd, args) => {
+    const r = spawnSync(cmd, args, { encoding: 'utf8' });
+    if (r.status !== 0 && !r.stdout) return null;
+    return String(r.stdout || r.stderr).split('\n')[0].trim();
+  };
+  const REQUIRED = [
+    ['node', ['--version'], 'https://nodejs.org/ から入れる（18以上）'],
+    ['npm', ['--version'], 'node と一緒に入る'],
+    ['git', ['--version'], 'Xcode Command Line Tools か https://git-scm.com/'],
+  ];
+  // 使う工程が限られるもの。無くても止めないが、そのとき何ができないかを言う。
+  const OPTIONAL = [
+    ['php', ['--version'], 'gate の php -l がスキップされる（テーマの文法検査ができない）'],
+    ['wp', ['--version'], 'wp-cli。初期データの投入を手で叩くときに要る'],
+  ];
+  for (const [cmd, args, how] of REQUIRED) {
+    const v = ver(cmd, args);
+    if (v) ok(`${cmd} がある（${v}）`);
+    else ng(`${cmd} が無い`, how);
+  }
+  for (const [cmd, args, why] of OPTIONAL) {
+    const v = ver(cmd, args);
+    if (v) ok(`${cmd} がある（${v}）`);
+    else notes.push(`${cmd} が無い。${why}`);
+  }
+  // WordPress をどこで動かすかは案件次第。Local.app は代表的な選択肢なので見るだけ見る。
+  if (process.platform === 'darwin' && !fs.existsSync('/Applications/Local.app')) {
+    notes.push('Local.app が見つからない。WordPress を動かす環境が別にあるなら問題ない');
+  }
+}
+
 // 1. 本体の依存
 if (fs.existsSync(path.join(ICHIKI, 'node_modules', 'cheerio'))) {
   ok('Ichiki の依存が入っている');
@@ -69,6 +107,30 @@ if (conf) {
   if (!conf.mockup) notes.push('.ichiki.json に mockup が無い（コマンドで毎回パスを渡すことになる）');
   for (const k of ['theme_dir', 'site_url']) {
     if (!conf[k]) ng(`.ichiki.json の ${k} が空`, '環境に合わせて書いてください（scan は埋められません）');
+  }
+  // 書いてあっても**実際に届くか**は別。ポートが被って別のサイトが応答することがある。
+  // 実測: Local はサイトを作り直すとポートが変わり、site_url が別サイトを指していた。
+  if (conf.theme_dir && !fs.existsSync(path.dirname(conf.theme_dir))) {
+    ng(
+      `.ichiki.json の theme_dir の親フォルダが無い: ${path.dirname(conf.theme_dir)}`,
+      'WordPress の themes フォルダの場所を確認してください（Local ならサイトを起動してから）'
+    );
+  }
+  if (conf.site_url) {
+    const r = require('child_process').spawnSync(
+      'curl',
+      ['-s', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '4', conf.site_url],
+      { encoding: 'utf8' }
+    );
+    const code = (r.stdout || '').trim();
+    if (code === '000' || code === '') {
+      ng(
+        `${conf.site_url} に繋がらない`,
+        'WordPress を起動してください（Local ならサイトを Start）。ポートが変わっていないかも確認'
+      );
+    } else {
+      ok(`${conf.site_url} に繋がる（HTTP ${code}）`);
+    }
   }
   // 構造化が途中の宣言。規約（rules/ichiki.md「モックの置き場所」）から外れた配置を
   // 宣言された逸脱として扱う。**残件を数字で出す**。書いたまま忘れられるのが一番まずい。
