@@ -61,7 +61,7 @@ function isInNav(absFile, href) {
 // --- 未解決リンクは lint L30 から取る（同じ判定を2度書かない） ---
 function unresolvedLinks() {
   const lintJs = path.join(__dirname, '..', 'lint', 'lint.js');
-  const r = spawnSync('node', [lintJs, MOCKUP, '--json'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  const r = spawnSync(process.execPath, [lintJs, MOCKUP, '--json'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
   try {
     const j = JSON.parse(r.stdout);
     const seen = new Map();

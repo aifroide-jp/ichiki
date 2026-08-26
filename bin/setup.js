@@ -28,9 +28,23 @@ function has(cmd) {
   return spawnSync(probe, { shell: true, stdio: 'ignore' }).status === 0;
 }
 
+// **shell: true を使わない。**
+// Windows で node の実体は "C:\Program Files\nodejs\node.exe" のように空白を含む。
+// shell:true にすると Program で切れて「'C:\Program' は認識されていません」になる。
+// npm / npx は Windows では .cmd なので、そこだけ拡張子を足して直接呼ぶ。
 function run(cmd, args, opts = {}) {
-  const r = spawnSync(cmd, args, { stdio: 'inherit', shell: process.platform === 'win32', ...opts });
+  const real = process.platform === 'win32' && (cmd === 'npm' || cmd === 'npx') ? `${cmd}.cmd` : cmd;
+  const r = spawnSync(real, args, { stdio: 'inherit', ...opts });
+  if (r.error && r.error.code === 'ENOENT') {
+    console.error(`✗ ${cmd} が見つかりません`);
+    return false;
+  }
   return r.status === 0;
+}
+
+// 自分自身（Ichiki のコマンド）を呼ぶ。node の実体をそのまま使うので確実。
+function ichiki(args, opts = {}) {
+  return run(process.execPath, [BIN, ...args], opts);
 }
 
 if (!fs.existsSync(ICHIKI)) {
@@ -44,11 +58,23 @@ if (!fs.existsSync(ICHIKI)) {
 // --- 手元の道具を先に見る ---
 // 無いまま進むと `npm: command not found` だけが出て、
 // **何を入れればいいか分からない画面**になる（実測）。
+// node は見ない。**このスクリプト自体が node で動くので、無ければここへ来られない。**
+// （その場合に出るのは `node: command not found` だけ。案内は README 側に置く）
+// npm は node と一緒に入るのが普通だが、入れ方によっては欠けることがあるので見る。
 const REQUIRED = [
-  ['node', 'https://nodejs.org/ から入れてください（18以上）'],
-  ['npm', 'node と一緒に入ります。node を入れ直してください'],
+  ['npm', 'node と一緒に入ります。https://nodejs.org/ から入れ直してください'],
   ['git', process.platform === 'win32' ? 'https://git-scm.com/download/win' : 'Xcode Command Line Tools（xcode-select --install）か https://git-scm.com/'],
 ];
+// 動いてはいるが古い node かもしれない。それはここで見られる。
+{
+  const major = Number(process.versions.node.split('.')[0]);
+  if (major < 18) {
+    console.error(`✗ node が古すぎます（いま v${process.versions.node} / 18以上が要ります）`);
+    console.error('    https://nodejs.org/ から入れ直してください');
+    process.exit(2);
+  }
+}
+
 const missing = REQUIRED.filter(([c]) => !has(c));
 if (missing.length) {
   for (const [c, how] of missing) {
@@ -100,7 +126,7 @@ console.log('3/4 スラッシュコマンドを配置します');
 }
 
 console.log('4/4 案件設定とフィールド台帳を作ります');
-if (!run(process.execPath, [BIN, 'scan', '.', '.'])) {
+if (!ichiki(['scan', '.', '.'])) {
   console.error('');
   console.error('✗ scan が止まりました。モックが規約に合っていない可能性があります。');
   console.error('  上の出力を見て直してから、もう一度このコマンドを流してください。');
@@ -108,7 +134,7 @@ if (!run(process.execPath, [BIN, 'scan', '.', '.'])) {
 }
 
 console.log('');
-run(process.execPath, [BIN, 'doctor']);
+ichiki(['doctor']);
 console.log('');
 console.log('──────────────────────────────────────────');
 console.log('残りは手で書いてください（機械には分かりません）:');

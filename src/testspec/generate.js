@@ -118,7 +118,7 @@ async function main() {
   // 絵が無ければ絵なしで出る（gen-guide-html が自分で判断する）。
   {
     const { spawnSync } = require('child_process');
-    const r = spawnSync('node', [path.join(__dirname, 'gen-guide-html.js'), REPO_ROOT], { encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [path.join(__dirname, 'gen-guide-html.js'), REPO_ROOT], { encoding: 'utf8' });
     process.stdout.write(r.stdout || '');
     if (r.status !== 0) process.stderr.write(r.stderr || '');
   }

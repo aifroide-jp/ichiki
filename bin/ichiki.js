@@ -97,7 +97,9 @@ const NO_DEPS_NEEDED = new Set(['doctor']);
 
 function run(script, args, name) {
   if (!NO_DEPS_NEEDED.has(name)) checkDeps();
-  const r = spawnSync('node', [script, ...args], { stdio: 'inherit' });
+  // 'node' を PATH から引かず、いま動いている node の実体を使う。
+  // Windows で node が PATH に無い入れ方をされていても確実に動く。
+  const r = spawnSync(process.execPath, [script, ...args], { stdio: 'inherit' });
   process.exit(r.status === null ? 1 : r.status);
 }
 
@@ -108,7 +110,7 @@ function selftest() {
     ['ルール同期', 'check-rule-sync.js'],
     ['負のテスト', 'verify-rules.js'],
   ]) {
-    const r = spawnSync('node', [path.join(ROOT, 'test', f)], { encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'test', f)], { encoding: 'utf8' });
     const ok = r.status === 0;
     console.log(`${ok ? '✓' : '✗'} ${label}`);
     if (!ok) {
