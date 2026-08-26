@@ -18,8 +18,10 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const ROOT = process.cwd();
-const ICHIKI = path.join(ROOT, '.claude', 'ichiki');
+// **cwd に頼らない。** 自分は .claude/ichiki/bin/setup.js なので、
+// そこから案件のルートを逆算できる。どこから叩かれても同じ場所を見る。
+const ICHIKI = path.join(__dirname, '..');
+const ROOT = path.join(ICHIKI, '..', '..');
 const BIN = path.join(ICHIKI, 'bin', 'ichiki.js');
 
 function has(cmd) {
@@ -47,7 +49,7 @@ function ichiki(args, opts = {}) {
   return run(process.execPath, [BIN, ...args], opts);
 }
 
-if (!fs.existsSync(ICHIKI)) {
+if (!fs.existsSync(path.join(ICHIKI, 'package.json'))) {
   console.error('✗ .claude/ichiki がありません。先に submodule を入れてください:');
   console.error('');
   console.error('  git submodule add https://github.com/aifroide-jp/ichiki .claude/ichiki');
