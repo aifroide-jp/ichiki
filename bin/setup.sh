@@ -40,12 +40,20 @@ fi
 # 無くても進めるが、後の工程で効くもの。ここで言っておく。
 command -v php >/dev/null 2>&1 || \
   echo "※ php がありません。gate の php -l（テーマの文法検査）が飛ばされます"
-command -v wp >/dev/null 2>&1 || \
-  echo "※ wp-cli がありません。初期データの投入を手で叩くときに要ります"
+if ! command -v wp >/dev/null 2>&1; then
+  echo "※ wp-cli がありません（無くても構いません）"
+  echo "   初期データは管理画面を1回開けば入ります。コマンドで叩きたいときだけ要ります。"
+  if [ -f "/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar" ]; then
+    echo "   Local を使うなら、サイトを右クリック →「Open site shell」で wp が使えます。"
+  fi
+  echo "   自分で入れるなら: brew install wp-cli （または https://wp-cli.org/#installing）"
+fi
 # WordPress をどこで動かすかは案件と人による（Local / Herd / Docker / リモート）。
 # **アプリの有無は検知しない。** 入っていても起動していなければ意味がなく、
 # 起動していれば doctor の疎通確認が通る。要件だけ伝える。
-echo "※ WordPress を動かす環境が要ります（Local / Herd など）。"
+echo "※ WordPress を動かす環境が要ります。"
+echo "   Local  https://localwp.com/"
+echo "   Herd   https://herd.laravel.com/"
 echo "   後で .ichiki.json の site_url と theme_dir にその場所を書きます。"
 
 echo "1/4 依存を入れます（初回は数分かかります）"
