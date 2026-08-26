@@ -276,7 +276,25 @@ function main() {
 
   const files = findHtmlFiles(rootDir);
   if (!files.length) {
-    console.error(`*.html が見つかりません: ${rootDir}`);
+    console.error(`モックのページ（*.html）が1枚もありません: ${rootDir}`);
+    console.error('');
+    // いちばん多いのは「合意デザインだけ置いて、まだ構造化していない」状態。
+    // メッセージが場所しか言わないと、何をすればいいか分からない（実測で詰まった）。
+    // ここは設定を読む前なので、自分で読む
+    const c = readConfig(process.cwd()).conf;
+    const before = path.resolve(rootDir, (c.retrofit && c.retrofit.before) || DEFAULT_BEFORE_DIR);
+    if (fs.existsSync(before)) {
+      const n = findHtmlFiles(before).length;
+      console.error(`合意デザインは ${n} ページあります: ${path.relative(process.cwd(), before) || before}`);
+      console.error('');
+      console.error('まだ構造化していないようです。1枚でもルートに置けば scan が通ります。');
+      console.error('やり方: .claude/ichiki/docs/022-既存htmlからモックアップを作る.md');
+    } else {
+      console.error('モックはこのディレクトリの直下に置きます（サブフォルダも見ます）。');
+      console.error('隠しディレクトリと docs / scripts / node_modules は対象外です。');
+      console.error('');
+      console.error('場所が違うなら、引数で渡すか .ichiki.json の mockup に書いてください。');
+    }
     process.exit(2);
   }
 
