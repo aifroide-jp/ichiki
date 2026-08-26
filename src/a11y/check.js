@@ -59,6 +59,30 @@ function findHtmlFiles(rootDir) {
   return results;
 }
 
+// pa11y に渡すブラウザ。
+//
+// pa11y は puppeteer 経由で Chrome を使うが、puppeteer の postinstall は
+// **500MB 超の Chrome を npm install の最中に落とす**。
+// 実測: そこが失敗して setup が毎回止まった（ネットワーク・プロキシ依存）。
+// Ichiki は見た目の比較で playwright の chromium を既に入れているので、
+// それを渡して二重取得をやめる（.npmrc で puppeteer_skip_download=true）。
+//
+// 見つからなければ puppeteer の既定に委ねる。手で Chrome を入れている人が
+// いてもよいし、ここで断定して止める必要は無い。
+let _exe;
+function chromeExecutable() {
+  if (_exe === undefined) {
+    _exe = null;
+    try {
+      const p = require('playwright').chromium.executablePath();
+      if (p && fs.existsSync(p)) _exe = p;
+    } catch {
+      /* playwright が無い場合も既定に委ねる */
+    }
+  }
+  return _exe ? { executablePath: _exe } : {};
+}
+
 async function checkPage(absPathOrUrl) {
   // モックは file://、公開後のサイトは http(s):// で開く。
   // 同じ判定器を使うので、モックと実サイトの結果を並べて比べられる。
@@ -81,6 +105,7 @@ async function checkPage(absPathOrUrl) {
     timeout: 30000,
     chromeLaunchConfig: {
       args: ['--allow-file-access-from-files', '--no-sandbox'],
+      ...chromeExecutable(),
     },
   });
 }

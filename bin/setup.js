@@ -147,15 +147,27 @@ if (!has('wp')) {
 }
 console.log('');
 
-console.log('1/4 依存を入れます（初回は数分かかります）');
-if (!run('npm', ['install', '--silent'], { cwd: ICHIKI })) {
-  console.error('✗ npm install に失敗しました');
+console.log('1/4 依存を入れます（初回は1分ほど）');
+// **--silent を付けない。** 実測: 付けていたせいで npm が何を言ったか見えず、
+// 「✗ npm install に失敗しました」だけが残って原因が分からなかった。
+// 進捗の見栄えより、落ちたときに読めることを取る。
+if (!run('npm', ['install', '--no-audit', '--no-fund'], { cwd: ICHIKI })) {
+  console.error('');
+  console.error('✗ npm install に失敗しました。上に npm のメッセージが出ています。');
+  console.error('  よくある原因:');
+  console.error('   - ネットワーク / プロキシ（社内網なら npm config set proxy が要ることがあります）');
+  console.error('   - 途中で壊れた node_modules → 消してやり直すと直ります:');
+  console.error(`       ${process.platform === 'win32' ? 'rmdir /s /q' : 'rm -rf'} ${path.join('.claude', 'ichiki', 'node_modules')}`);
+  console.error('  それでも直らないときは、上の npm のメッセージをそのまま貼ってください。');
   process.exit(1);
 }
 
-console.log('2/4 見た目の比較に使うブラウザを入れます');
-if (!run('npx', ['--yes', 'playwright', 'install', 'chromium'], { cwd: ICHIKI, stdio: 'ignore' })) {
-  console.log('    ※ 入りませんでした。ichiki diff を使うときに入れ直してください');
+// chromium は「見た目の比較」だけでなく **アクセシビリティ検査にも使う**。
+// puppeteer の Chrome ダウンロードを .npmrc で止めた分、ここが本体になった。
+console.log('2/4 ブラウザを入れます（見た目の比較とアクセシビリティ検査に使います。初回は数分）');
+if (!run('npx', ['--yes', 'playwright', 'install', 'chromium'], { cwd: ICHIKI })) {
+  console.log('    ※ 入りませんでした。ichiki diff と ichiki a11y が使えません。');
+  console.log('       あとで入れ直せます: node .claude/ichiki/bin/setup.js');
 }
 
 console.log('3/4 スラッシュコマンドを配置します');
