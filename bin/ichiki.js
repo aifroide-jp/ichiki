@@ -79,15 +79,18 @@ function checkVersion(args) {
 // 初めて触る人に見せることになるので、先に見て案内する。
 function checkDeps() {
   if (fs.existsSync(path.join(ROOT, 'node_modules', 'cheerio'))) return;
-  console.error('Ichiki の依存が入っていません。');
+  // **cd を指示しない。** 以前はここで
+  //   cd .claude/ichiki && npm install && cd ../..
+  // と出していたが、実測で戻り忘れが起き、そのまま
+  //   node .claude/ichiki/bin/ichiki.js scan
+  // を叩いてパスが二重になり MODULE_NOT_FOUND になった。
+  // setup が同じ npm install を .claude/ichiki の中で走らせるので、そちらを出す。
+  // 案件のルートにいるまま叩けて、playwright まで一度に済む。
+  console.error('セットアップが終わっていません。案件のルートでこれを叩いてください:');
   console.error('');
-  console.error('  cd .claude/ichiki && npm install && cd ../..');
+  console.error('  node .claude/ichiki/bin/setup.js');
   console.error('');
-  console.error('見た目の比較を使うときは、続けてこれも必要です（初回のみ・数分かかります）:');
-  console.error('');
-  console.error('  cd .claude/ichiki && npx playwright install chromium && cd ../..');
-  console.error('');
-  console.error('入れ終わったら `ichiki doctor` で確認できます。');
+  console.error('（依存の取り込みと、見た目の比較に使う chromium を入れます。初回は数分かかります）');
   process.exit(2);
 }
 
@@ -95,7 +98,29 @@ function checkDeps() {
 // （実際 fs と path しか使っていない）。ここで止めると診られない。
 const NO_DEPS_NEEDED = new Set(['doctor']);
 
+// Ichiki の中で叩かれていないか。
+//
+// 実測: `cd .claude/ichiki && npm install` のあと戻り忘れて叩き、
+//   1) `node .claude/ichiki/bin/ichiki.js …` → パスが二重になって MODULE_NOT_FOUND
+//   2) `node bin/ichiki.js scan` → **Ichiki 自身の test/mockup-bad を読みに行った**
+// 2 のほうが悪い。案件と無関係のエラーが出て、原因が分からない。
+//
+// 自分自身が案件のモックであることは無いので、ここで止める。
+function checkCwd(name) {
+  if (name === 'selftest') return; // 本体の検査は中から叩くのが正しい
+  const cwd = path.resolve(process.cwd());
+  if (cwd !== ROOT && !cwd.startsWith(ROOT + path.sep)) return;
+  console.error('Ichiki のディレクトリの中にいます。**案件のルートで叩いてください。**');
+  console.error('');
+  console.error(`  cd ${path.relative(cwd, path.resolve(ROOT, '..', '..')) || '..'}`);
+  console.error(`  node .claude/ichiki/bin/ichiki.js ${name}`);
+  console.error('');
+  console.error('（ここで叩くと Ichiki 自身のファイルを読んでしまいます）');
+  process.exit(2);
+}
+
 function run(script, args, name) {
+  checkCwd(name);
   if (!NO_DEPS_NEEDED.has(name)) checkDeps();
   // 'node' を PATH から引かず、いま動いている node の実体を使う。
   // Windows で node が PATH に無い入れ方をされていても確実に動く。

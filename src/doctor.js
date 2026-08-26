@@ -52,7 +52,7 @@ function ng(msg, how) {
   ];
   // 使う工程が限られるもの。無くても止めないが、そのとき何ができないかを言う。
   const OPTIONAL = [
-    ['php', ['--version'], 'gate の php -l がスキップされる（テーマの文法検査ができない）'],
+    ['php', ['--version'], 'gate の php -l がスキップされる（Local を入れれば同梱の php を使う）'],
     // wp-cli は**無くても大半の工程が動く**（初期データは管理画面を1回開けば入る）。
     // Local は wp-cli.phar を同梱しているが PATH には出さない（「Open site shell」でだけ使える）。
     // 同梱版は PHP のバージョンによっては動かない（実測: PHP 8.5 で起動しない / 8.2 なら動く）。

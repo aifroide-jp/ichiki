@@ -155,10 +155,17 @@ step('php -l', null, null, { php: true });
 // blocking:false だったので gate は続行し、誰も気づかないまま残っていた。
 
 function runPhpLint() {
-  const probe = spawnSync('php', ['-v'], { encoding: 'utf8' });
-  if (probe.status !== 0) {
-    return { status: 0, output: '', skipped: 'php が見つからないためスキップしました' };
+  // PATH に無ければ Local 同梱の php を借りる（Herd を要求しないため）
+  const { findPhp } = require('./shared/wp-env');
+  const found = findPhp((c) => spawnSync(c, ['-v'], { stdio: 'ignore' }).status === 0);
+  if (!found) {
+    return {
+      status: 0,
+      output: '',
+      skipped: 'php が見つからないためスキップしました（Local を入れれば同梱の php を使います）',
+    };
   }
+  const PHP = found.cmd;
   const files = [];
   (function walk(d) {
     if (!fs.existsSync(d)) return;
@@ -171,10 +178,10 @@ function runPhpLint() {
   if (files.length === 0) return { status: 1, output: 'テーマに .php が1つもありません' };
   const bad = [];
   for (const f of files) {
-    const r = spawnSync('php', ['-l', f], { encoding: 'utf8' });
+    const r = spawnSync(PHP, ['-l', f], { encoding: 'utf8' });
     if (r.status !== 0) bad.push((r.stdout || '') + (r.stderr || ''));
   }
-  return { status: bad.length ? 1 : 0, output: bad.join('\n'), note: `${files.length}ファイル` };
+  return { status: bad.length ? 1 : 0, output: bad.join('\n'), note: `${files.length}ファイル / ${found.from}` };
 }
 
 function main() {
