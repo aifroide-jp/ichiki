@@ -92,18 +92,52 @@ if (missing.length) {
 if (!has('php')) {
   console.log('※ php がありません。gate の php -l（テーマの文法検査）が飛ばされます');
 }
+// --- 手元の WordPress を探す ---
+// **アプリの実行ファイルは探さない**（理由は src/shared/wp-env.js の頭）。
+// Local のサイト台帳を読む。見つかれば .ichiki.json に貼る値まで出せる。
+const { localSites, herdInstalled, themeDirFor, localSitesFile } = require('../src/shared/wp-env');
+const sites = localSites();
+const herd = herdInstalled(has);
+
+if (sites.length) {
+  console.log(`✓ Local のサイトが ${sites.length}件あります`);
+  for (const s of sites) {
+    console.log(`   ${s.name}  ${s.url}${s.exists ? '' : '  ※ wp-config.php が無い（未作成かも）'}`);
+  }
+  console.log('');
+  console.log('   .ichiki.json にはこう書きます（theme_slug は案件名）:');
+  const s = sites[0];
+  console.log(`     "site_url":  "${s.url}"`);
+  console.log(`     "theme_dir": ${JSON.stringify(themeDirFor(s, '<theme_slug>'))}`);
+} else if (herd) {
+  console.log('✓ Herd があります');
+  console.log('   サイトの場所は Herd 側で決まるので、.ichiki.json の');
+  console.log('   site_url と theme_dir はご自分で書いてください。');
+} else {
+  // ここで初めて案内する。**入っている人には出さない。**
+  // 実測: 以前はこの文を無条件に出していたため、Local が入っている Windows で
+  // 「入っていない」と読まれた。
+  console.log('※ WordPress を動かす環境が見つかりません。どちらかを入れてください。');
+  console.log('   Local  https://localwp.com/   （こちらが前提。サイト台帳を読んで自動で見つけます）');
+  console.log('   Herd   https://herd.laravel.com/');
+  console.log(`   Local を入れてあるのに出るときは、台帳が見つかっていません: ${localSitesFile()}`);
+  console.log('   後で .ichiki.json の site_url と theme_dir にその場所を書きます。');
+}
+
 if (!has('wp')) {
+  console.log('');
   console.log('※ wp-cli がありません（無くても構いません）');
   console.log('   初期データは管理画面を1回開けば入ります。コマンドで叩きたいときだけ要ります。');
-  if (fs.existsSync('/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar')) {
-    console.log('   Local を使うなら、サイトを右クリック →「Open site shell」で wp が使えます。');
+  if (sites.length) {
+    console.log('   Local のサイトを右クリック →「Open site shell」で wp が使えます。');
+  } else if (process.platform === 'darwin') {
+    console.log('   自分で入れるなら: brew install wp-cli （または https://wp-cli.org/#installing）');
+  } else if (process.platform === 'win32') {
+    console.log('   自分で入れるなら: https://wp-cli.org/#installing （Windows は Git Bash か WSL が要ります）');
+  } else {
+    console.log('   自分で入れるなら: https://wp-cli.org/#installing');
   }
-  console.log('   自分で入れるなら: brew install wp-cli （または https://wp-cli.org/#installing）');
 }
-console.log('※ WordPress を動かす環境が要ります。');
-console.log('   Local  https://localwp.com/');
-console.log('   Herd   https://herd.laravel.com/');
-console.log('   後で .ichiki.json の site_url と theme_dir にその場所を書きます。');
 console.log('');
 
 console.log('1/4 依存を入れます（初回は数分かかります）');
