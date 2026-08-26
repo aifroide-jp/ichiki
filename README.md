@@ -52,28 +52,26 @@ node .claude/ichiki/bin/ichiki.js doctor
 
 </details>
 
-手順3が要るのは、**Claude Code が `.claude/commands/` しか見ない**ため。
+コマンドの配置が要るのは、**Claude Code が `.claude/commands/` しか見ない**ため。
 `.claude/ichiki/commands/` に置いても認識されないのでコピーする。
 
 ### 更新するとき
 
-**手順3のコピーを必ずやり直すこと。** ここを忘れると古い手順が動き続ける。
+submodule を進めてから、**同じ `setup.sh` を流す**。
 
 ```bash
-cd .claude/ichiki
-git fetch && git checkout <新しいコミット>
-npm install
-cd ../..
-cp .claude/ichiki/commands/*.md .claude/commands/     # ← 忘れやすい
-# .ichiki.json の ichiki_version も更新する
-node .claude/ichiki/bin/ichiki.js doctor
+cd .claude/ichiki && git fetch && git checkout <新しいコミット> && cd ../..
+sh .claude/ichiki/bin/setup.sh
 ```
 
-`doctor` がコピーのズレとバージョン違いを見る。**忘れても気づけるようにしてある。**
+`setup.sh` は既存のファイルを壊さないので、初回と同じものを流せる。
+**コマンドのコピーもやり直される。** `.ichiki.json` の `ichiki_version` だけ手で直す。
 
 > 実測: `commands/run.md` を新しい手順へ書き換えたのに、案件側は古いコピーのままで、
 > `/run` を叩けば旧手順（AI が1ページずつテンプレートを書く）が動く状態だった。
 > 書き換えた本人が塞げたと思い込んでいた。**静かに壊れるので、検査が要る。**
+
+`doctor` がコピーのズレとバージョン違いを見る。**忘れても気づけるようにしてある。**
 
 ## 考え方
 
