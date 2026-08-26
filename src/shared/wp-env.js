@@ -85,10 +85,15 @@ function themeDirFor(site, slug) {
 // wp-cli は一度も呼ばない。それだけのために PHP 環境をもう一つ入れさせるのは重い。
 // Local は php を同梱していて、PATH に通っていないだけなので、そこから借りる。
 //
-//   <userData>/Local/lightning-services/php-<ver>+<n>/bin/<platform>/bin/php[.exe]
+//   <userData>/Local/lightning-services/php-<ver>+<n>/bin/<platform>/...
 //
-// <platform> は darwin-arm64 / win32-x64 のように OS と CPU で変わる。
-// **名前を当てにいかず、その階層を総なめする。** 1階層なので安い。
+// **その先の形を決め打ちしない。** 実測で mac は
+//   bin/darwin-arm64/php  と  bin/darwin-arm64/bin/php  の両方にあり、
+// Windows は bin/win64/php.exe（bin が1段少ない）だった。
+// 決め打ちした結果、Local が入っている Windows で「php がありません」と出た。
+//
+// 浅い順に候補を集め、**実際に -v が通ったものを採る**。
+// 存在するかではなく動くかで決めれば、階層名も段数も当てなくてよい。
 function findPhp(hasCmd) {
   // PATH にあるなら黙ってそれを使う（Herd / brew / システム / WSL、どれでもよい）
   if (hasCmd && hasCmd('php')) return { cmd: 'php', from: 'PATH' };
@@ -101,30 +106,56 @@ function findPhp(hasCmd) {
     return null;
   }
   const ver = (d) => (d.match(/^php-(\d+)\.(\d+)\.(\d+)/) || []).slice(1).map(Number);
-  // 新しい順。サイトの phpVersion が分かればそれを優先する（検査は本番と同じ版でしたい）
   dirs.sort((a, b) => {
     const [A, B] = [ver(a), ver(b)];
     for (let i = 0; i < 3; i++) if ((A[i] || 0) !== (B[i] || 0)) return (B[i] || 0) - (A[i] || 0);
     return 0;
   });
+  // サイトが使っている版を優先する。検査は本番と同じ版でしたい
   const wanted = localSites().map((s) => s.phpVersion).filter(Boolean);
   const ordered = [...dirs.filter((d) => wanted.some((w) => d.startsWith(`php-${w}`))), ...dirs];
 
   const exe = process.platform === 'win32' ? 'php.exe' : 'php';
   for (const d of ordered) {
-    const binRoot = path.join(svc, d, 'bin');
-    let plats;
-    try {
-      plats = fs.readdirSync(binRoot);
-    } catch {
-      continue;
-    }
-    for (const plat of plats) {
-      const cand = path.join(binRoot, plat, 'bin', exe);
-      if (fs.existsSync(cand)) return { cmd: cand, from: `Local 同梱（${d}）` };
+    for (const cand of collectPhp(path.join(svc, d, 'bin'), exe, 3)) {
+      if (runsAsPhp(cand)) return { cmd: cand, from: `Local 同梱（${d}）` };
     }
   }
   return null;
+}
+
+// 深さを切って php 実体を集める。浅い順（幅優先）に返す。
+function collectPhp(root, exe, maxDepth) {
+  const out = [];
+  let level = [root];
+  for (let depth = 0; depth <= maxDepth && level.length; depth++) {
+    const next = [];
+    for (const dir of level) {
+      let ents;
+      try {
+        ents = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const e of ents) {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) next.push(full);
+        else if (e.name === exe) out.push(full);
+      }
+    }
+    level = next;
+  }
+  return out;
+}
+
+// 「あるか」ではなく「動くか」で決める。include/php のような紛れを弾ける。
+function runsAsPhp(bin) {
+  try {
+    const r = require('child_process').spawnSync(bin, ['-v'], { encoding: 'utf8', timeout: 10000 });
+    return r.status === 0 && /^PHP \d/.test(r.stdout || '');
+  } catch {
+    return false;
+  }
 }
 
 module.exports = { localSitesFile, localSites, herdInstalled, themeDirFor, findPhp };

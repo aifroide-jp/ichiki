@@ -18,6 +18,8 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
+const argv = process.argv.slice(2);
+
 // **cwd に頼らない。** 自分は .claude/ichiki/bin/setup.js なので、
 // そこから案件のルートを逆算できる。どこから叩かれても同じ場所を見る。
 const ICHIKI = path.join(__dirname, '..');
@@ -32,13 +34,27 @@ function has(cmd) {
 
 // **shell: true を使わない。**
 // Windows で node の実体は "C:\Program Files\nodejs\node.exe" のように空白を含む。
-// shell:true にすると Program で切れて「'C:\Program' は認識されていません」になる。
-// npm / npx は Windows では .cmd なので、そこだけ拡張子を足して直接呼ぶ。
+// 起動の仕方が2種類ある。**混ぜると必ずどちらかが壊れる。**
+//
+// npm / npx（PATH から引く名前）
+//   Windows では実体が npm.cmd で、Node 18.20.2 / 20.12.2 以降は
+//   .cmd / .bat を shell 無しで起動すると **EINVAL** になる（CVE-2024-27980 対応）。
+//   実測: npm が一度も動かないまま「✗ npm install に失敗しました」だけが出た。
+//   npm のメッセージが無いのはこのため。→ shell:true が要る。
+//
+// process.execPath（絶対パス）
+//   "C:\Program Files\nodejs\node.exe" のように空白を含むので、
+//   shell:true にすると 'C:\Program' で切れる。→ shell:false でなければならない。
+//
+// 名前で引くものだけ shell に通す。引数に空白は無い（install / --no-audit 等）。
 function run(cmd, args, opts = {}) {
-  const real = process.platform === 'win32' && (cmd === 'npm' || cmd === 'npx') ? `${cmd}.cmd` : cmd;
-  const r = spawnSync(real, args, { stdio: 'inherit', ...opts });
-  if (r.error && r.error.code === 'ENOENT') {
-    console.error(`✗ ${cmd} が見つかりません`);
+  const viaShell = process.platform === 'win32' && (cmd === 'npm' || cmd === 'npx');
+  const r = spawnSync(cmd, args, { stdio: 'inherit', ...(viaShell ? { shell: true } : {}), ...opts });
+  // **error を握りつぶさない。** 以前は ENOENT だけ見ていたので、
+  // EINVAL のように「起動すらできなかった」場合が無言になっていた。
+  if (r.error) {
+    if (r.error.code === 'ENOENT') console.error(`✗ ${cmd} が見つかりません`);
+    else console.error(`✗ ${cmd} を起動できませんでした（${r.error.code || r.error.message}）`);
     return false;
   }
   return r.status === 0;
@@ -147,6 +163,18 @@ if (!has('wp')) {
 }
 console.log('');
 
+// 壊れた node_modules の消し方は cmd と PowerShell で違う（rmdir /s /q は cmd 専用）。
+// **シェルの構文を人に当てさせない。** 自分で消す。
+if (argv.includes('--clean')) {
+  for (const d of ['node_modules']) {
+    const t = path.join(ICHIKI, d);
+    if (fs.existsSync(t)) {
+      fs.rmSync(t, { recursive: true, force: true });
+      console.log(`削除しました: ${path.join('.claude', 'ichiki', d)}`);
+    }
+  }
+}
+
 console.log('1/4 依存を入れます（初回は1分ほど）');
 // **--silent を付けない。** 実測: 付けていたせいで npm が何を言ったか見えず、
 // 「✗ npm install に失敗しました」だけが残って原因が分からなかった。
@@ -156,8 +184,8 @@ if (!run('npm', ['install', '--no-audit', '--no-fund'], { cwd: ICHIKI })) {
   console.error('✗ npm install に失敗しました。上に npm のメッセージが出ています。');
   console.error('  よくある原因:');
   console.error('   - ネットワーク / プロキシ（社内網なら npm config set proxy が要ることがあります）');
-  console.error('   - 途中で壊れた node_modules → 消してやり直すと直ります:');
-  console.error(`       ${process.platform === 'win32' ? 'rmdir /s /q' : 'rm -rf'} ${path.join('.claude', 'ichiki', 'node_modules')}`);
+  console.error('   - 途中で壊れた node_modules → 消してやり直します（シェルの違いは気にしなくて構いません）:');
+  console.error('       node .claude/ichiki/bin/setup.js --clean');
   console.error('  それでも直らないときは、上の npm のメッセージをそのまま貼ってください。');
   process.exit(1);
 }
