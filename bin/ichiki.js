@@ -33,6 +33,7 @@ const COMMANDS = [
   ['deliver',     [SRC, 'deliver.js'],                 '[サイトURL] [--no-visual]', '公開後の検査と検収成果物を順に流す（サイトが要る）'],
   ['publish-mockup', [SRC, 'publish-mockup.js'],      '<置き先> [--remove]', 'モックを配る（合意前にお客様へ見せる用）'],
   ['serve',       [SRC, 'serve.js'],                   '[mockup] [port]',                              'モックを配信するだけの静的サーバ'],
+  ['setup',       [ROOT, 'bin', 'setup.sh'],           '', '案件に入れる（依存・コマンド配置・設定作成を一括）'],
   ['doctor',      [SRC, 'doctor.js'],                  '[案件ルート]',                                 '案件側の受け入れ状態（依存・設定・コマンドのコピー）'],
   ['selftest',    null,                                '',                                             'Ichiki 自身の検査（scan回帰・ルール同期・負のテスト）'],
 ];
@@ -95,6 +96,10 @@ function checkDeps() {
 const NO_DEPS_NEEDED = new Set(['doctor']);
 
 function run(script, args, name) {
+  if (script.endsWith('.sh')) {
+    const r = spawnSync('sh', [script, ...args], { stdio: 'inherit' });
+    process.exit(r.status === null ? 1 : r.status);
+  }
   if (!NO_DEPS_NEEDED.has(name)) checkDeps();
   const r = spawnSync('node', [script, ...args], { stdio: 'inherit' });
   process.exit(r.status === null ? 1 : r.status);
