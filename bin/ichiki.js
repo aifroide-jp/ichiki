@@ -18,7 +18,7 @@ const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf
 const COMMANDS = [
   ['lint',        [SRC, 'lint', 'lint.js'],            '<mockup> [--json] [--allow-unresolved-links]', 'モックが制約語彙に適合しているか'],
   ['a11y',        [SRC, 'a11y', 'check.js'],           '<mockup> [--json] [--site <URL>] [--report <path>]',                            'pa11y + axe（WCAG2AA）'],
-  ['scan',        [SRC, 'scan.js'],                    '<mockup> <out> [--project <名前>] [--allow-unresolved-links]',                            'acf-map.yaml / coverage.json / CLAUDE.md'],
+  ['scan',        [SRC, 'scan.js'],                    '[mockup] [出力先] [--project <名前>] [--allow-unresolved-links]  ※どちらも既定は案件のルート',                            'acf-map.yaml / coverage.json / CLAUDE.md'],
   ['build',       [SRC, 'converter', 'convert.js'],    '<mockup> <出力先> [--acf-map <yaml>]',         'WordPress テーマを生成'],
   ['verify',      [SRC, 'verify', 'coverage.js'],      '<mockup> <theme>',                             '宣言 → the_field() が出力されているか'],
   ['verify:structure', [SRC, 'verify', 'structure.js'],'<mockup> <theme>',                             'モックの class が生成物に残っているか'],
@@ -97,7 +97,9 @@ const NO_DEPS_NEEDED = new Set(['doctor']);
 
 function run(script, args, name) {
   if (!NO_DEPS_NEEDED.has(name)) checkDeps();
-  const r = spawnSync('node', [script, ...args], { stdio: 'inherit' });
+  // 'node' を PATH から引かず、いま動いている node の実体を使う。
+  // Windows で node が PATH に無い入れ方をされていても確実に動く。
+  const r = spawnSync(process.execPath, [script, ...args], { stdio: 'inherit' });
   process.exit(r.status === null ? 1 : r.status);
 }
 
@@ -108,7 +110,7 @@ function selftest() {
     ['ルール同期', 'check-rule-sync.js'],
     ['負のテスト', 'verify-rules.js'],
   ]) {
-    const r = spawnSync('node', [path.join(ROOT, 'test', f)], { encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'test', f)], { encoding: 'utf8' });
     const ok = r.status === 0;
     console.log(`${ok ? '✓' : '✗'} ${label}`);
     if (!ok) {

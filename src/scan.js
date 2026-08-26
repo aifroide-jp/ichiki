@@ -270,13 +270,38 @@ function main() {
   const args = process.argv
     .slice(2)
     .filter((a, i, all) => a !== '--project' && all[i - 1] !== '--project' && a !== '--allow-unresolved-links');
-  // 既定は案件の設定から（本体に 'mockup' というディレクトリは無い）
+  // 既定は両方とも案件のルート。
+  //
+  //   モック   … .ichiki.json の mockup（既定 "./"）
+  //   出力先   … 案件のルート。acf-map.yaml / CLAUDE.md / README.md は案件のものなので
+  //              **Ichiki の中に書かない**（以前の既定は src/out を指していた）。
+  //
+  // 両方を省けるようにしたのは `ichiki scan . .` が紛らわしかったため。
+  // 「. が2つ並んで何と何か分からない」という指摘を受けている。
   const rootDir = path.resolve(process.cwd(), args[0] || readConfig(process.cwd()).conf.mockup || './');
-  const outDir = path.resolve(process.cwd(), args[1] || path.join(__dirname, 'out'));
+  const outDir = path.resolve(process.cwd(), args[1] || '.');
 
   const files = findHtmlFiles(rootDir);
   if (!files.length) {
-    console.error(`*.html が見つかりません: ${rootDir}`);
+    console.error(`モックのページ（*.html）が1枚もありません: ${rootDir}`);
+    console.error('');
+    // いちばん多いのは「合意デザインだけ置いて、まだ構造化していない」状態。
+    // メッセージが場所しか言わないと、何をすればいいか分からない（実測で詰まった）。
+    // ここは設定を読む前なので、自分で読む
+    const c = readConfig(process.cwd()).conf;
+    const before = path.resolve(rootDir, (c.retrofit && c.retrofit.before) || DEFAULT_BEFORE_DIR);
+    if (fs.existsSync(before)) {
+      const n = findHtmlFiles(before).length;
+      console.error(`合意デザインは ${n} ページあります: ${path.relative(process.cwd(), before) || before}`);
+      console.error('');
+      console.error('まだ構造化していないようです。1枚でもルートに置けば scan が通ります。');
+      console.error('やり方: .claude/ichiki/docs/022-既存htmlからモックアップを作る.md');
+    } else {
+      console.error('モックはこのディレクトリの直下に置きます（サブフォルダも見ます）。');
+      console.error('隠しディレクトリと docs / scripts / node_modules は対象外です。');
+      console.error('');
+      console.error('場所が違うなら、引数で渡すか .ichiki.json の mockup に書いてください。');
+    }
     process.exit(2);
   }
 
@@ -364,7 +389,7 @@ function main() {
   // 案件用 CLAUDE.md は**無いときだけ作る**。
   // 中身は案件ごとに人が書き足すもの（この案件では実装ルール・トップページの仕様・
   // フォーム設定などが手書きで入っている）。上書きすると全部消える。
-  // 台帳を出し直すたびに `ichiki scan . .` を叩けるようにしておきたいので、
+  // 台帳を出し直すたびに `ichiki scan` を叩けるようにしておきたいので、
   // ここが無防備だと事故になる（.ichiki.json は既にある値を書き換えない作りにしてある）。
   // 案件用 README。CLAUDE.md と同じく**無いときだけ作る**（人が書き足した分を消さない）。
   {

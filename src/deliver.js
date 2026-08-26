@@ -76,7 +76,7 @@ function main() {
   let stoppedAt = null;
 
   for (const s of steps) {
-    const p = spawnSync('node', s.args, { encoding: 'utf8' });
+    const p = spawnSync(process.execPath, s.args, { encoding: 'utf8' });
     const out = (p.stdout || '') + (p.stderr || '');
     if (p.status !== 0) {
       failures.push({ name: s.name, output: out, blocking: s.blocking, detail: s.detail });

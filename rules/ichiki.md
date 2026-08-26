@@ -102,8 +102,8 @@ git mv <ルートのページ一式> .ichiki/mockup-before/
 ### 4. 見た目が変わっていないことを確かめる
 
 ```bash
-ichiki serve .ichiki/mockup-before 18081
-ichiki diff . http://localhost:18081
+node .claude/ichiki/bin/ichiki.js serve .ichiki/mockup-before 18081
+node .claude/ichiki/bin/ichiki.js diff . http://localhost:18081
 ```
 
 構造化は宣言を足すだけなので、**見た目が変わってはいけない**。
