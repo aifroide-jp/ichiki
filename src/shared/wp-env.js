@@ -60,6 +60,7 @@ function localSites() {
       name: s.name || path.basename(root),
       url: s.domain ? `http://${s.domain}` : null,
       publicDir: pub,
+      phpVersion: s.phpVersion || null,
       exists: fs.existsSync(path.join(pub, 'wp-config.php')),
     });
   }
@@ -78,4 +79,52 @@ function themeDirFor(site, slug) {
   return path.join(site.publicDir, 'wp-content', 'themes', slug);
 }
 
-module.exports = { localSitesFile, localSites, herdInstalled, themeDirFor };
+// gate の `php -l` に使う php を探す。
+//
+// **Herd を要求しないため。** Ichiki が php を使うのはテーマの文法検査 1箇所だけで、
+// wp-cli は一度も呼ばない。それだけのために PHP 環境をもう一つ入れさせるのは重い。
+// Local は php を同梱していて、PATH に通っていないだけなので、そこから借りる。
+//
+//   <userData>/Local/lightning-services/php-<ver>+<n>/bin/<platform>/bin/php[.exe]
+//
+// <platform> は darwin-arm64 / win32-x64 のように OS と CPU で変わる。
+// **名前を当てにいかず、その階層を総なめする。** 1階層なので安い。
+function findPhp(hasCmd) {
+  // PATH にあるなら黙ってそれを使う（Herd / brew / システム / WSL、どれでもよい）
+  if (hasCmd && hasCmd('php')) return { cmd: 'php', from: 'PATH' };
+
+  const svc = path.join(userData('Local'), 'lightning-services');
+  let dirs;
+  try {
+    dirs = fs.readdirSync(svc).filter((d) => d.startsWith('php-'));
+  } catch {
+    return null;
+  }
+  const ver = (d) => (d.match(/^php-(\d+)\.(\d+)\.(\d+)/) || []).slice(1).map(Number);
+  // 新しい順。サイトの phpVersion が分かればそれを優先する（検査は本番と同じ版でしたい）
+  dirs.sort((a, b) => {
+    const [A, B] = [ver(a), ver(b)];
+    for (let i = 0; i < 3; i++) if ((A[i] || 0) !== (B[i] || 0)) return (B[i] || 0) - (A[i] || 0);
+    return 0;
+  });
+  const wanted = localSites().map((s) => s.phpVersion).filter(Boolean);
+  const ordered = [...dirs.filter((d) => wanted.some((w) => d.startsWith(`php-${w}`))), ...dirs];
+
+  const exe = process.platform === 'win32' ? 'php.exe' : 'php';
+  for (const d of ordered) {
+    const binRoot = path.join(svc, d, 'bin');
+    let plats;
+    try {
+      plats = fs.readdirSync(binRoot);
+    } catch {
+      continue;
+    }
+    for (const plat of plats) {
+      const cand = path.join(binRoot, plat, 'bin', exe);
+      if (fs.existsSync(cand)) return { cmd: cand, from: `Local 同梱（${d}）` };
+    }
+  }
+  return null;
+}
+
+module.exports = { localSitesFile, localSites, herdInstalled, themeDirFor, findPhp };

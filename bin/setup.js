@@ -89,8 +89,15 @@ if (missing.length) {
 }
 
 // 無くても進めるが、後の工程で効くもの。ここで言っておく。
-if (!has('php')) {
-  console.log('※ php がありません。gate の php -l（テーマの文法検査）が飛ばされます');
+{
+  const { findPhp } = require('../src/shared/wp-env');
+  const php = findPhp(has);
+  if (!php) {
+    console.log('※ php がありません。gate の php -l（テーマの文法検査）が飛ばされます');
+    console.log('   Local を入れれば同梱の php を使うので、別途入れる必要はありません。');
+  } else if (php.from !== 'PATH') {
+    console.log(`✓ php は ${php.from} を使います`);
+  }
 }
 // --- 手元の WordPress を探す ---
 // **アプリの実行ファイルは探さない**（理由は src/shared/wp-env.js の頭）。
