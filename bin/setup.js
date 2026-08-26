@@ -1,0 +1,119 @@
+#!/usr/bin/env node
+'use strict';
+
+// 案件に Ichiki を入れる。**submodule を追加したあと、案件のルートで1回だけ叩く。**
+//
+//   node .claude/ichiki/bin/ichiki.js setup
+//
+// なぜ node で書くか:
+//   最初は setup.sh（シェル）だったが、**Windows の PowerShell に sh が無い**。
+//   実測: `sh: The term 'sh' is not recognized...` で動かなかった。
+//   .bat を併置する手もあるが、2つ持てば必ずズレる。
+//   Ichiki は node で動くのだから、node で書けば1つで済む。
+//
+// 手打ちする行が多いと、どれかを飛ばしても気づけない
+// （実測: コマンドのコピーを忘れて旧手順が動き続けた）。順番に流して、最後に doctor で確認する。
+
+const fs = require('fs');
+const path = require('path');
+const { spawnSync } = require('child_process');
+
+const ROOT = process.cwd();
+const ICHIKI = path.join(ROOT, '.claude', 'ichiki');
+const BIN = path.join(ICHIKI, 'bin', 'ichiki.js');
+
+function has(cmd) {
+  // Windows は where、それ以外は command -v。shell:true で PATHEXT も効かせる。
+  const probe = process.platform === 'win32' ? `where ${cmd}` : `command -v ${cmd}`;
+  return spawnSync(probe, { shell: true, stdio: 'ignore' }).status === 0;
+}
+
+function run(cmd, args, opts = {}) {
+  const r = spawnSync(cmd, args, { stdio: 'inherit', shell: process.platform === 'win32', ...opts });
+  return r.status === 0;
+}
+
+if (!fs.existsSync(ICHIKI)) {
+  console.error('✗ .claude/ichiki がありません。先に submodule を入れてください:');
+  console.error('');
+  console.error('  git submodule add https://github.com/aifroide-jp/ichiki .claude/ichiki');
+  console.error('  git submodule update --init --recursive');
+  process.exit(2);
+}
+
+// --- 手元の道具を先に見る ---
+// 無いまま進むと `npm: command not found` だけが出て、
+// **何を入れればいいか分からない画面**になる（実測）。
+const REQUIRED = [
+  ['node', 'https://nodejs.org/ から入れてください（18以上）'],
+  ['npm', 'node と一緒に入ります。node を入れ直してください'],
+  ['git', process.platform === 'win32' ? 'https://git-scm.com/download/win' : 'Xcode Command Line Tools（xcode-select --install）か https://git-scm.com/'],
+];
+const missing = REQUIRED.filter(([c]) => !has(c));
+if (missing.length) {
+  for (const [c, how] of missing) {
+    console.error(`✗ ${c} がありません`);
+    console.error(`    ${how}`);
+  }
+  console.error('');
+  console.error('上を入れてから、もう一度このコマンドを流してください。');
+  process.exit(2);
+}
+
+// 無くても進めるが、後の工程で効くもの。ここで言っておく。
+if (!has('php')) {
+  console.log('※ php がありません。gate の php -l（テーマの文法検査）が飛ばされます');
+}
+if (!has('wp')) {
+  console.log('※ wp-cli がありません（無くても構いません）');
+  console.log('   初期データは管理画面を1回開けば入ります。コマンドで叩きたいときだけ要ります。');
+  if (fs.existsSync('/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar')) {
+    console.log('   Local を使うなら、サイトを右クリック →「Open site shell」で wp が使えます。');
+  }
+  console.log('   自分で入れるなら: brew install wp-cli （または https://wp-cli.org/#installing）');
+}
+console.log('※ WordPress を動かす環境が要ります。');
+console.log('   Local  https://localwp.com/');
+console.log('   Herd   https://herd.laravel.com/');
+console.log('   後で .ichiki.json の site_url と theme_dir にその場所を書きます。');
+console.log('');
+
+console.log('1/4 依存を入れます（初回は数分かかります）');
+if (!run('npm', ['install', '--silent'], { cwd: ICHIKI })) {
+  console.error('✗ npm install に失敗しました');
+  process.exit(1);
+}
+
+console.log('2/4 見た目の比較に使うブラウザを入れます');
+if (!run('npx', ['--yes', 'playwright', 'install', 'chromium'], { cwd: ICHIKI, stdio: 'ignore' })) {
+  console.log('    ※ 入りませんでした。ichiki diff を使うときに入れ直してください');
+}
+
+console.log('3/4 スラッシュコマンドを配置します');
+{
+  const src = path.join(ICHIKI, 'commands');
+  const dst = path.join(ROOT, '.claude', 'commands');
+  fs.mkdirSync(dst, { recursive: true });
+  for (const f of fs.readdirSync(src).filter((x) => x.endsWith('.md'))) {
+    fs.copyFileSync(path.join(src, f), path.join(dst, f));
+  }
+}
+
+console.log('4/4 案件設定とフィールド台帳を作ります');
+if (!run(process.execPath, [BIN, 'scan', '.', '.'])) {
+  console.error('');
+  console.error('✗ scan が止まりました。モックが規約に合っていない可能性があります。');
+  console.error('  上の出力を見て直してから、もう一度このコマンドを流してください。');
+  process.exit(1);
+}
+
+console.log('');
+run(process.execPath, [BIN, 'doctor']);
+console.log('');
+console.log('──────────────────────────────────────────');
+console.log('残りは手で書いてください（機械には分かりません）:');
+console.log('');
+console.log('  .ichiki.json の theme_dir  … WordPress の themes フォルダの場所');
+console.log('  .ichiki.json の site_url   … 開発中のサイトの URL');
+console.log('');
+console.log('書いたら `node .claude/ichiki/bin/ichiki.js doctor` で確認できます。');

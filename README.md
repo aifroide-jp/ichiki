@@ -30,24 +30,27 @@ git submodule add https://github.com/aifroide-jp/ichiki .claude/ichiki
 git submodule update --init --recursive
 
 # 2. 残りは1コマンド（依存・ブラウザ・コマンド配置・設定作成・確認）
-sh .claude/ichiki/bin/setup.sh
+node .claude/ichiki/bin/ichiki.js setup
 ```
+
+**Windows でもそのまま動きます**（node で書いてあるので `sh` は要りません）。
 
 最後に `.ichiki.json` の `theme_dir` と `site_url` を手で書きます。
 **機械には分からない値**（WordPress の場所と URL）なので、そこだけ残しています。
 書いたら `ichiki doctor` で確認できます。
 
-`setup.sh` は**何度流しても既存のファイルを壊しません**。`README.md` と `CLAUDE.md` は
+`ichiki setup` は**何度流しても既存のファイルを壊しません**。`README.md` と `CLAUDE.md` は
 無いときだけ作ります。更新のときも同じものを流せます。
 
-<details><summary>setup.sh が何をしているか</summary>
+<details><summary>ichiki setup が何をしているか</summary>
 
 ```bash
-cd .claude/ichiki && npm install                    # 依存
-cd .claude/ichiki && npx playwright install chromium # 見た目の比較に使う
-mkdir -p .claude/commands && cp .claude/ichiki/commands/*.md .claude/commands/
-node .claude/ichiki/bin/ichiki.js scan . .           # .ichiki.json / acf-map.yaml / CLAUDE.md / README.md
-node .claude/ichiki/bin/ichiki.js doctor
+1. 手元の道具を見る（node / npm / git が無ければ入れ方を出して止まる）
+2. .claude/ichiki で npm install
+3. .claude/ichiki で npx playwright install chromium
+4. .claude/ichiki/commands/*.md を .claude/commands/ へコピー
+5. ichiki scan . .（.ichiki.json / acf-map.yaml / CLAUDE.md / README.md）
+6. ichiki doctor
 ```
 
 </details>
@@ -57,14 +60,14 @@ node .claude/ichiki/bin/ichiki.js doctor
 
 ### 更新するとき
 
-submodule を進めてから、**同じ `setup.sh` を流す**。
+submodule を進めてから、**同じ `ichiki setup` を流す**。
 
 ```bash
 cd .claude/ichiki && git fetch && git checkout <新しいコミット> && cd ../..
-sh .claude/ichiki/bin/setup.sh
+node .claude/ichiki/bin/ichiki.js setup
 ```
 
-`setup.sh` は既存のファイルを壊さないので、初回と同じものを流せる。
+`ichiki setup` は既存のファイルを壊さないので、初回と同じものを流せる。
 **コマンドのコピーもやり直される。** `.ichiki.json` の `ichiki_version` だけ手で直す。
 
 > 実測: `commands/run.md` を新しい手順へ書き換えたのに、案件側は古いコピーのままで、
