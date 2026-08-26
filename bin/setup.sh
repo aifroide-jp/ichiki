@@ -18,6 +18,44 @@ if [ ! -d "$ICHIKI" ]; then
   exit 2
 fi
 
+# 手元の道具を先に見る。無いまま進むと `npm: command not found` だけが出て、
+# **何を入れればいいか分からない画面**になる（実測）。
+missing=""
+need() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "✗ $1 がありません"
+    echo "    $2"
+    missing="yes"
+  fi
+}
+need node "https://nodejs.org/ から入れてください（18以上）"
+need npm  "node と一緒に入ります。node を入れ直してください"
+need git  "Xcode Command Line Tools（xcode-select --install）か https://git-scm.com/"
+if [ -n "$missing" ]; then
+  echo ""
+  echo "上を入れてから、もう一度このコマンドを流してください。"
+  exit 2
+fi
+
+# 無くても進めるが、後の工程で効くもの。ここで言っておく。
+command -v php >/dev/null 2>&1 || \
+  echo "※ php がありません。gate の php -l（テーマの文法検査）が飛ばされます"
+if ! command -v wp >/dev/null 2>&1; then
+  echo "※ wp-cli がありません（無くても構いません）"
+  echo "   初期データは管理画面を1回開けば入ります。コマンドで叩きたいときだけ要ります。"
+  if [ -f "/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar" ]; then
+    echo "   Local を使うなら、サイトを右クリック →「Open site shell」で wp が使えます。"
+  fi
+  echo "   自分で入れるなら: brew install wp-cli （または https://wp-cli.org/#installing）"
+fi
+# WordPress をどこで動かすかは案件と人による（Local / Herd / Docker / リモート）。
+# **アプリの有無は検知しない。** 入っていても起動していなければ意味がなく、
+# 起動していれば doctor の疎通確認が通る。要件だけ伝える。
+echo "※ WordPress を動かす環境が要ります。"
+echo "   Local  https://localwp.com/"
+echo "   Herd   https://herd.laravel.com/"
+echo "   後で .ichiki.json の site_url と theme_dir にその場所を書きます。"
+
 echo "1/4 依存を入れます（初回は数分かかります）"
 ( cd "$ICHIKI" && npm install --silent )
 

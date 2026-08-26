@@ -53,7 +53,15 @@ function ng(msg, how) {
   // 使う工程が限られるもの。無くても止めないが、そのとき何ができないかを言う。
   const OPTIONAL = [
     ['php', ['--version'], 'gate の php -l がスキップされる（テーマの文法検査ができない）'],
-    ['wp', ['--version'], 'wp-cli。初期データの投入を手で叩くときに要る'],
+    // wp-cli は**無くても大半の工程が動く**（初期データは管理画面を1回開けば入る）。
+    // Local は wp-cli.phar を同梱しているが PATH には出さない（「Open site shell」でだけ使える）。
+    // 同梱版は PHP のバージョンによっては動かない（実測: PHP 8.5 で起動しない / 8.2 なら動く）。
+    [
+      'wp',
+      ['--version'],
+      'wp-cli。無くても構わない（初期データは管理画面を1回開けば入る）。' +
+        'Local なら「Open site shell」で使える。自分で入れるなら brew install wp-cli',
+    ],
   ];
   for (const [cmd, args, how] of REQUIRED) {
     const v = ver(cmd, args);
@@ -65,10 +73,10 @@ function ng(msg, how) {
     if (v) ok(`${cmd} がある（${v}）`);
     else notes.push(`${cmd} が無い。${why}`);
   }
-  // WordPress をどこで動かすかは案件次第。Local.app は代表的な選択肢なので見るだけ見る。
-  if (process.platform === 'darwin' && !fs.existsSync('/Applications/Local.app')) {
-    notes.push('Local.app が見つからない。WordPress を動かす環境が別にあるなら問題ない');
-  }
+  // **WordPress を動かすアプリは検知しない。**
+  // Local / Herd / Docker / リモートのどれかは案件と人による。
+  // 入っていても起動していなければ意味がなく、起動していれば下の疎通確認が通る。
+  // 見るべきは「繋がるか」と「themes フォルダがあるか」で、それは下でやっている。
 }
 
 // 1. 本体の依存
