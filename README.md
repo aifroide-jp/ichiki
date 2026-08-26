@@ -7,6 +7,16 @@
 node bin/ichiki.js --help
 ```
 
+> **コマンドの書き方**
+> `ichiki` という名前のコマンドは**ありません**（submodule なので PATH に入りません）。
+> 実際にはこう打ちます。文書中の `ichiki xxx` は、この省略表記です。
+>
+> ```bash
+> node .claude/ichiki/bin/ichiki.js xxx
+> ```
+>
+> Ichiki のリポジトリの中にいるときは `node bin/ichiki.js xxx` です。
+
 ## 手順書（案件を進める人向け）
 
 この README は**開発者向けの一次情報**です。案件を回す手順は下の3つにまとめてあります。
@@ -112,16 +122,16 @@ node .claude/ichiki/bin/ichiki.js setup
 
 ```bash
 # 1. モックが規約に適合しているか
-ichiki lint <mockup>
+node .claude/ichiki/bin/ichiki.js lint <mockup>
 
 # 2. フィールド台帳を出す
-ichiki scan <mockup> <出力先>
+node .claude/ichiki/bin/ichiki.js scan <mockup> <出力先>
 
 # 3. テーマを生成する
-ichiki build <mockup> <テーマの置き場所> --acf-map <出力先>/acf-map.yaml
+node .claude/ichiki/bin/ichiki.js build <mockup> <テーマの置き場所> --acf-map <出力先>/acf-map.yaml
 
 # まとめて（lint → a11y → scan → build → 検証 → php -l）
-ichiki gate <mockup>
+node .claude/ichiki/bin/ichiki.js gate <mockup>
 ```
 
 案件ごとの設定は案件リポジトリの `.ichiki.json` に置く。
@@ -174,11 +184,11 @@ test/             fixture / mockup-bad / expected と自己検査
 
 ## 2本立て
 
-```
-ichiki gate      モック → テーマ         サイト不要
-（テーマを WordPress に入れる）
-ichiki deliver   公開後のサイト → 成果物  **サイトが要る**
-```
+| | | |
+|---|---|---|
+| `gate` | モック → テーマ | サイト不要 |
+| （テーマを WordPress に入れる） | | |
+| `deliver` | 公開後のサイト → 成果物 | **サイトが要る** |
 
 `deliver` が束ねるもの（この順でないと成立しない）:
 
@@ -199,8 +209,8 @@ ichiki deliver   公開後のサイト → 成果物  **サイトが要る**
 ## 検査
 
 ```bash
-ichiki doctor      # 案件側の受け入れ状態（依存・設定・コマンドのコピー）
-ichiki selftest    # Ichiki 自身の健全性
+node .claude/ichiki/bin/ichiki.js doctor      # 案件側の受け入れ状態（依存・設定・コマンドのコピー）
+node .claude/ichiki/bin/ichiki.js selftest    # Ichiki 自身の健全性
 ```
 
 `doctor` が見るもの: 依存が入っているか / `.ichiki.json` があるか /
