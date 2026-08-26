@@ -60,7 +60,7 @@ node .claude/ichiki/bin/ichiki.js setup
 2. .claude/ichiki で npm install
 3. .claude/ichiki で npx playwright install chromium
 4. .claude/ichiki/commands/*.md を .claude/commands/ へコピー
-5. ichiki scan . .（.ichiki.json / acf-map.yaml / CLAUDE.md / README.md）
+5. ichiki scan（.ichiki.json / acf-map.yaml / CLAUDE.md / README.md）
 6. ichiki doctor
 ```
 
@@ -125,7 +125,7 @@ node .claude/ichiki/bin/ichiki.js setup
 node .claude/ichiki/bin/ichiki.js lint <mockup>
 
 # 2. フィールド台帳を出す
-node .claude/ichiki/bin/ichiki.js scan <mockup> <出力先>
+node .claude/ichiki/bin/ichiki.js scan
 
 # 3. テーマを生成する
 node .claude/ichiki/bin/ichiki.js build <mockup> <テーマの置き場所> --acf-map <出力先>/acf-map.yaml
