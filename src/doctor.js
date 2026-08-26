@@ -65,10 +65,10 @@ function ng(msg, how) {
     if (v) ok(`${cmd} がある（${v}）`);
     else notes.push(`${cmd} が無い。${why}`);
   }
-  // WordPress をどこで動かすかは案件次第。Local.app は代表的な選択肢なので見るだけ見る。
-  if (process.platform === 'darwin' && !fs.existsSync('/Applications/Local.app')) {
-    notes.push('Local.app が見つからない。WordPress を動かす環境が別にあるなら問題ない');
-  }
+  // **WordPress を動かすアプリは検知しない。**
+  // Local / Herd / Docker / リモートのどれかは案件と人による。
+  // 入っていても起動していなければ意味がなく、起動していれば下の疎通確認が通る。
+  // 見るべきは「繋がるか」と「themes フォルダがあるか」で、それは下でやっている。
 }
 
 // 1. 本体の依存
