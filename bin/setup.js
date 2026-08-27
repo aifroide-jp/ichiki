@@ -16,6 +16,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const readline = require('readline');
 const { spawnSync } = require('child_process');
 
 const argv = process.argv.slice(2);
@@ -217,13 +218,92 @@ if (!ichiki(['scan'])) {
   process.exit(1);
 }
 
-console.log('');
-ichiki(['doctor']);
-console.log('');
-console.log('──────────────────────────────────────────');
-console.log('残りは手で書いてください（機械には分かりません）:');
-console.log('');
-console.log('  .ichiki.json の theme_dir  … WordPress の themes フォルダの場所');
-console.log('  .ichiki.json の site_url   … 開発中のサイトの URL');
-console.log('');
-console.log('書いたら `node .claude/ichiki/bin/ichiki.js doctor` で確認できます。');
+finish().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
+
+// scan のあとは対話（.ichiki.json の環境値を聞く）が入るので async にする。
+async function finish() {
+  await fillEnvValuesInteractively();
+  syncIchikiVersion();
+
+  console.log('');
+  ichiki(['doctor']);
+  console.log('');
+  console.log('──────────────────────────────────────────');
+  console.log('.ichiki.json がまだ埋まっていない項目は、上の doctor の出力に直し方があります。');
+}
+
+// .ichiki.json の環境値（wp_root / local_site_container / theme_slug / site_url）が
+// 空のままなら対話で聞く。**対話端末のときだけ。**
+// CI やスクリプトから呼ばれたときに標準入力待ちで固まらないようにする
+// （process.stdin.isTTY はパイプ/リダイレクトでは false になる）。
+async function fillEnvValuesInteractively() {
+  const confPath = path.join(ROOT, '.ichiki.json');
+  if (!fs.existsSync(confPath) || !process.stdin.isTTY) return;
+
+  let conf;
+  try {
+    conf = JSON.parse(fs.readFileSync(confPath, 'utf8'));
+  } catch {
+    return; // 壊れていれば doctor が言う
+  }
+
+  const needsSite = !conf.theme_dir && (!conf.wp_root || !conf.local_site_container);
+  const needsUrl = !conf.site_url;
+  const needsSlug = !conf.theme_slug;
+  if (!needsSite && !needsUrl && !needsSlug) return;
+
+  console.log('');
+  console.log('環境の値を聞きます（Enter で [ ] の候補をそのまま使えます。あとで .ichiki.json を直接編集しても構いません）:');
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q, def) =>
+    new Promise((resolve) => {
+      rl.question(`  ${q}${def ? ` [${def}]` : ''}: `, (a) => resolve(a.trim() || def || ''));
+    });
+
+  // 上で検出した Local サイト一覧の先頭を候補として出す（どれがこの案件のものかは分からないため）。
+  const suggested = sites[0];
+
+  if (needsSlug) {
+    const { themeSlug } = require('../src/shared/project-config');
+    conf.theme_slug = await ask('theme_slug（テーマ名）', themeSlug(conf));
+  }
+  if (needsSite) {
+    conf.wp_root = await ask('wp_root（Local Sites のフルパス）', suggested ? suggested.wpRoot : '');
+    conf.local_site_container = await ask('local_site_container（Local で作成したサイト名）', suggested ? suggested.container : '');
+  }
+  if (needsUrl) {
+    const matched = sites.find((s) => s.container === conf.local_site_container) || suggested;
+    conf.site_url = await ask('site_url', matched ? matched.url : '');
+  }
+
+  rl.close();
+
+  const { writeConfig } = require('../src/shared/project-config');
+  writeConfig(confPath, conf);
+  console.log('✓ .ichiki.json を更新しました');
+}
+
+// ichiki_version は環境値ではない（WordPressの場所やURLと違って人が知っている値ではなく、
+// 本体のバージョンをそのまま映すだけ）。setup を流すたびに揃える。
+// 実測: これを手で直す運用にしていたら、直し忘れて doctor がバージョン不一致を言い続けていた。
+function syncIchikiVersion() {
+  const confPath = path.join(ROOT, '.ichiki.json');
+  if (!fs.existsSync(confPath)) return;
+  let conf;
+  try {
+    conf = JSON.parse(fs.readFileSync(confPath, 'utf8'));
+  } catch {
+    return;
+  }
+  const version = require('../package.json').version;
+  if (conf.ichiki_version === version) return;
+  const old = conf.ichiki_version;
+  conf.ichiki_version = version;
+  const { writeConfig } = require('../src/shared/project-config');
+  writeConfig(confPath, conf);
+  console.log(old ? `✓ ichiki_version を ${old} → ${version} に更新しました` : `✓ ichiki_version を ${version} にしました`);
+}

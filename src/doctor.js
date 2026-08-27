@@ -112,7 +112,8 @@ if (conf) {
   } else if (conf.ichiki_version !== VERSION) {
     ng(
       `バージョン不一致（案件は ${conf.ichiki_version} を想定 / 本体は ${VERSION}）`,
-      'submodule のコミットを合わせるか .ichiki.json を更新してください'
+      'setup をもう一度流してください（ichiki_version も含めて揃います）。' +
+        '本体を更新したつもりが無いなら、submodule のコミットを合わせてください'
     );
   } else {
     ok(`バージョンが一致している（${VERSION}）`);

@@ -103,7 +103,7 @@ node .claude/ichiki/bin/ichiki.js setup
 ```
 
 上のコマンドは既存のファイルを壊さないので、初回と同じものを流せる。
-**コマンドのコピーもやり直される。** `.ichiki.json` の `ichiki_version` だけ手で直す。
+**コマンドのコピーもやり直される。`.ichiki.json` の `ichiki_version` も自動で揃う。**
 
 `doctor` がコピーのズレとバージョン違いを見る。ズレていたら、上のセットアップコマンドを
 もう一度流せば直る。
