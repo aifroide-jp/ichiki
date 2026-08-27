@@ -63,7 +63,10 @@ node .claude/ichiki/bin/ichiki.js setup
 submodule を進めてから、**上と同じセットアップコマンドを流す**。
 
 ```bash
-cd .claude/ichiki && git fetch && git checkout <新しいコミット> && cd ../..
+cd .claude/ichiki
+git fetch
+git checkout <新しいコミット>
+cd ../..
 node .claude/ichiki/bin/ichiki.js setup
 ```
 
@@ -72,16 +75,6 @@ node .claude/ichiki/bin/ichiki.js setup
 
 `doctor` がコピーのズレとバージョン違いを見る。ズレていたら、上のセットアップコマンドを
 もう一度流せば直る。
-
----
-
-> **なぜ毎回 `node .claude/ichiki/bin/ichiki.js xxx` と書くか**
-> `ichiki` という名前のコマンドは**ありません**（submodule なので PATH に入らないため）。
-> 短縮せずに書いているのはそのためです。文書中で単に `lint` `scan` `gate` のように
-> 名前だけ書いてあるときも、実際に打つのはこの形です。
->
-> Ichiki のリポジトリの中にいるときは `node bin/ichiki.js xxx` です。
-> コマンド一覧は `node .claude/ichiki/bin/ichiki.js --help` で見られます。
 
 ---
 
@@ -203,3 +196,7 @@ brew upgrade node
 ```
 
 </details>
+
+---
+
+> コマンド一覧は `node .claude/ichiki/bin/ichiki.js --help` で見られます。
