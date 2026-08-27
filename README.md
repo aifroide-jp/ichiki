@@ -177,3 +177,32 @@ node .claude/ichiki/bin/ichiki.js selftest    # Ichiki 自身の健全性
 WordPress 6.5+ / PHP 8.1+ / クラシックテーマ。
 必須プラグイン: Advanced Custom Fields（無料版）/ Safe SVG / Contact Form 7。
 ACF PRO 専用機能（Repeater / Flexible Content / オプションページ）には依存しない。
+
+---
+
+## 古い Node.js から上げるとき
+
+`ichiki setup` が「node が古すぎます」と言ったら、24 以上に上げてください。
+WordPress 側の制約ではなく、Ichiki 自体（node で書かれている）だけの話です。
+
+**nodejs.org のインストーラで入れた人（前提）**
+
+1. https://nodejs.org/ja を開く
+2. LTS版（24.x）のインストーラをダウンロード
+3. 実行する（Mac: `.pkg` / Windows: `.msi`）。既存のバージョンは自動で上書きされる
+4. **ターミナルを開き直して** `node -v` で確認する
+   （開いたままのターミナルには PATH の更新が反映されない）
+
+<details><summary>nvm / Homebrew で入れている人</summary>
+
+```bash
+# nvm（nvm-windows も同じコマンド）
+nvm install 24
+nvm use 24
+nvm alias default 24   # 新しいターミナルでも既定を24にする
+
+# Homebrew（Mac）
+brew upgrade node
+```
+
+</details>
