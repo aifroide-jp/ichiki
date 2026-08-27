@@ -9,7 +9,7 @@
 
 | | 何のため | 入手先 |
 |---|---|---|
-| Node.js 22+ | Ichiki 自体の実行（node で書かれている） | [node LTS版](https://nodejs.org/ja) |
+| Node.js 24+ | Ichiki 自体の実行（node で書かれている） | [node LTS版](https://nodejs.org/ja) |
 | Local | WordPress の開発環境。サイト起動と PHP をこれ1つでまかなう | [Local](https://localwp.com/) |
 
 git は既に入っている前提（無ければ `ichiki setup` が入れ方を案内して止まる）。

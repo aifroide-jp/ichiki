@@ -50,7 +50,7 @@ function ng(msg, how) {
     return String(r.stdout || r.stderr).split('\n')[0].trim();
   };
   const REQUIRED = [
-    ['node', ['--version'], 'https://nodejs.org/ から入れる（18以上）'],
+    ['node', ['--version'], 'https://nodejs.org/ から入れる（24以上）'],
     ['npm', ['--version'], 'node と一緒に入る'],
     ['git', ['--version'], 'Xcode Command Line Tools か https://git-scm.com/'],
   ];

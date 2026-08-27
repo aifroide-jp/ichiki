@@ -86,8 +86,8 @@ const REQUIRED = [
 // 動いてはいるが古い node かもしれない。それはここで見られる。
 {
   const major = Number(process.versions.node.split('.')[0]);
-  if (major < 18) {
-    console.error(`✗ node が古すぎます（いま v${process.versions.node} / 18以上が要ります）`);
+  if (major < 24) {
+    console.error(`✗ node が古すぎます（いま v${process.versions.node} / 24以上が要ります）`);
     console.error('    https://nodejs.org/ から入れ直してください');
     process.exit(2);
   }
