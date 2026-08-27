@@ -35,6 +35,15 @@ node bin/ichiki.js --help
 
 Ichiki は案件リポジトリに **submodule** として入れて使う。
 
+事前に入れておくもの（Mac / Windows 共通。この2つだけ）:
+
+| | 何のため | 入手先 |
+|---|---|---|
+| Node.js 18+ | Ichiki 自体の実行（node で書かれている） | https://nodejs.org/（LTS版） |
+| Local | WordPress の開発環境。サイト起動と PHP をこれ1つでまかなう | https://localwp.com/ |
+
+git は既に入っている前提（無ければ `ichiki setup` が入れ方を案内して止まる）。
+
 ```bash
 # 1. 取り込む
 git submodule add https://github.com/aifroide-jp/ichiki .claude/ichiki

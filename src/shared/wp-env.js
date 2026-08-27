@@ -67,13 +67,6 @@ function localSites() {
   return out;
 }
 
-// Herd は台帳の形が公開されていないので、CLI が PATH にいるかだけ見る。
-// Herd は mac / Windows どちらも `herd` を PATH に通す。
-// 見つかっても**サイトの場所までは分からない**ので、そう言う。
-function herdInstalled(hasCmd) {
-  return hasCmd('herd');
-}
-
 // theme_dir を組み立てる
 function themeDirFor(site, slug) {
   return path.join(site.publicDir, 'wp-content', 'themes', slug);
@@ -81,8 +74,8 @@ function themeDirFor(site, slug) {
 
 // gate の `php -l` に使う php を探す。
 //
-// **Herd を要求しないため。** Ichiki が php を使うのはテーマの文法検査 1箇所だけで、
-// wp-cli は一度も呼ばない。それだけのために PHP 環境をもう一つ入れさせるのは重い。
+// Ichiki が php を使うのはテーマの文法検査 1箇所だけで、wp-cli は一度も呼ばない。
+// それだけのために PHP 環境をもう一つ入れさせるのは重い。
 // Local は php を同梱していて、PATH に通っていないだけなので、そこから借りる。
 //
 //   <userData>/Local/lightning-services/php-<ver>+<n>/bin/<platform>/...
@@ -95,7 +88,7 @@ function themeDirFor(site, slug) {
 // 浅い順に候補を集め、**実際に -v が通ったものを採る**。
 // 存在するかではなく動くかで決めれば、階層名も段数も当てなくてよい。
 function findPhp(hasCmd) {
-  // PATH にあるなら黙ってそれを使う（Herd / brew / システム / WSL、どれでもよい）
+  // PATH にあるなら黙ってそれを使う（brew / システム / WSL、どれでもよい）
   if (hasCmd && hasCmd('php')) return { cmd: 'php', from: 'PATH' };
 
   const svc = path.join(userData('Local'), 'lightning-services');
@@ -158,4 +151,4 @@ function runsAsPhp(bin) {
   }
 }
 
-module.exports = { localSitesFile, localSites, herdInstalled, themeDirFor, findPhp };
+module.exports = { localSitesFile, localSites, themeDirFor, findPhp };

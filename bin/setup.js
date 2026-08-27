@@ -118,9 +118,9 @@ if (missing.length) {
 // --- 手元の WordPress を探す ---
 // **アプリの実行ファイルは探さない**（理由は src/shared/wp-env.js の頭）。
 // Local のサイト台帳を読む。見つかれば .ichiki.json に貼る値まで出せる。
-const { localSites, herdInstalled, themeDirFor, localSitesFile } = require('../src/shared/wp-env');
+// Ichiki の前提は Local 一本（rules/ichiki.md「プロジェクト前提」）。他の環境は見ない。
+const { localSites, themeDirFor, localSitesFile } = require('../src/shared/wp-env');
 const sites = localSites();
-const herd = herdInstalled(has);
 
 if (sites.length) {
   console.log(`✓ Local のサイトが ${sites.length}件あります`);
@@ -132,18 +132,12 @@ if (sites.length) {
   const s = sites[0];
   console.log(`     "site_url":  "${s.url}"`);
   console.log(`     "theme_dir": ${JSON.stringify(themeDirFor(s, '<theme_slug>'))}`);
-} else if (herd) {
-  console.log('✓ Herd があります');
-  console.log('   サイトの場所は Herd 側で決まるので、.ichiki.json の');
-  console.log('   site_url と theme_dir はご自分で書いてください。');
 } else {
   // ここで初めて案内する。**入っている人には出さない。**
   // 実測: 以前はこの文を無条件に出していたため、Local が入っている Windows で
   // 「入っていない」と読まれた。
-  console.log('※ WordPress を動かす環境が見つかりません。どちらかを入れてください。');
-  console.log('   Local  https://localwp.com/   （こちらが前提。サイト台帳を読んで自動で見つけます）');
-  console.log('   Herd   https://herd.laravel.com/');
-  console.log(`   Local を入れてあるのに出るときは、台帳が見つかっていません: ${localSitesFile()}`);
+  console.log('※ Local が見つかりません。入れてください: https://localwp.com/');
+  console.log(`   入れてあるのに出るときは、台帳が見つかっていません: ${localSitesFile()}`);
   console.log('   後で .ichiki.json の site_url と theme_dir にその場所を書きます。');
 }
 
