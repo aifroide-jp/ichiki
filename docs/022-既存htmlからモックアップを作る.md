@@ -73,6 +73,17 @@ node .claude/ichiki/bin/ichiki.js serve .ichiki/mockup-before 18081 &
 node .claude/ichiki/bin/ichiki.js diff . http://localhost:18081
 ```
 
+> **Windows（PowerShell）** では末尾の `&` はバックグラウンド起動になりません。
+> ターミナルを2枚開き、1枚目で `serve` を動かしたまま、2枚目で `diff` を叩いてください。
+>
+> ```powershell
+> # 1枚目（開いたままにする）
+> node .claude/ichiki/bin/ichiki.js serve .ichiki/mockup-before 18081
+>
+> # 2枚目
+> node .claude/ichiki/bin/ichiki.js diff . http://localhost:18081
+> ```
+
 差分が出たら、宣言を足す以外のことをしています。
 
 > 一覧ページだけは差分が大きく出ます。モックが見本を何枚も並べているのに対し、

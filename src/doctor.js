@@ -40,8 +40,12 @@ function ng(msg, how) {
 // ここで先に言えば、何が足りないか一目で分かる。
 {
   const { spawnSync } = require('child_process');
+  // Windows は npm / wp が .cmd / .bat の実体で、shell:true 無しで起動すると
+  // EINVAL になり（Node 18.20.2 / 20.12.2 以降、CVE-2024-27980 対応）、
+  // 入っているのに「無い」と出る（bin/setup.js の run() と同じ理由）。
+  const viaShell = (cmd) => process.platform === 'win32' && ['npm', 'wp'].includes(cmd);
   const ver = (cmd, args) => {
-    const r = spawnSync(cmd, args, { encoding: 'utf8' });
+    const r = spawnSync(cmd, args, { encoding: 'utf8', ...(viaShell(cmd) ? { shell: true } : {}) });
     if (r.status !== 0 && !r.stdout) return null;
     return String(r.stdout || r.stderr).split('\n')[0].trim();
   };
@@ -125,9 +129,11 @@ if (conf) {
     );
   }
   if (conf.site_url) {
+    // /dev/null は Windows に無い。curl が書き込みに失敗し「繋がらない」と誤って出る。
+    const devNull = process.platform === 'win32' ? 'NUL' : '/dev/null';
     const r = require('child_process').spawnSync(
       'curl',
-      ['-s', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '4', conf.site_url],
+      ['-s', '-o', devNull, '-w', '%{http_code}', '--max-time', '4', conf.site_url],
       { encoding: 'utf8' }
     );
     const code = (r.stdout || '').trim();
