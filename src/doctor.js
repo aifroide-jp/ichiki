@@ -101,7 +101,7 @@ if (fs.existsSync(confPath)) {
     ng('.ichiki.json が壊れている（JSON として読めない）', '書式を直してください');
   }
 } else {
-  ng('.ichiki.json が無い', 'README の「はじめに」を見て作成してください');
+  ng('.ichiki.json が無い', 'README の「はじめる」を見て作成してください');
 }
 
 // 3. バージョンの記録と一致
