@@ -77,11 +77,45 @@ function findConfigPath(startDir) {
   return fs.existsSync(cwdFile) ? cwdFile : null;
 }
 
+// Windows のパスをそのまま貼ると `\` が単独で残る。JSON では `\t` `\n` のような
+// 制御文字のエスケープとして解釈され、**パースが通ってしまい値が静かに壊れる**
+// 組み合わせがある（実測: "C:\temp\newsite" が "C:<TAB>emp<改行>ewsite" になった）。
+// `\t` `\n` はそれ単体では**正しい JSON エスケープ**なので、JSON の妥当性だけでは
+// 「意図した制御文字」と「Windowsパスの区切りの書き間違い」を区別できない。
+// そこで先に「ドライブレターの直後の単一 \」というパターンで拾う
+// （`C:\` の直後に別の `\` が続かなければ、正しいエスケープではあり得ない）。
+function hasSuspiciousBackslash(raw) {
+  if (/[A-Za-z]:\\(?!\\)/.test(raw)) return true;
+
+  // それ以外の、有効なエスケープでない `\X`（`\\` は正しいペアとして読み飛ばす）。
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] !== '\\') continue;
+    const next = raw[i + 1];
+    if (next === '"' || next === '\\' || next === '/' || 'bfnrtu'.includes(next)) {
+      i++; // 正しいエスケープ。ペアごと読み飛ばす
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
 function readConfig(startDir) {
   const p = findConfigPath(startDir);
   if (!p) return { path: null, conf: {} };
+  const raw = fs.readFileSync(p, 'utf8');
+  // パースの成否によらず**必ず**警告する。\t / \n のような組み合わせは
+  // パースエラーにならず、気づけないまま値が壊れるため。
+  if (hasSuspiciousBackslash(raw)) {
+    console.error(
+      `⚠ ${p}: \\（バックスラッシュ）が単独で使われています。` +
+        'Windows のパスをそのまま貼ると起きます。JSON では \\t や \\n のような制御文字として' +
+        '解釈され、パースが失敗するか、エラーにもならず値が静かに壊れます。' +
+        '/（フォワードスラッシュ）に置き換えるか、\\\\ と2つ重ねてください。'
+    );
+  }
   try {
-    return { path: p, conf: JSON.parse(fs.readFileSync(p, 'utf8')) };
+    return { path: p, conf: JSON.parse(raw) };
   } catch (e) {
     throw new Error(`${p} が JSON として読めません: ${e.message}`);
   }
@@ -136,4 +170,5 @@ module.exports = {
   writeConfig,
   themeSlug,
   themeDir,
+  hasSuspiciousBackslash,
 };
