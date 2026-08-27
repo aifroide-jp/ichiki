@@ -64,11 +64,8 @@ node .claude/ichiki/bin/ichiki.js setup
 `ichiki setup` は既存のファイルを壊さないので、初回と同じものを流せる。
 **コマンドのコピーもやり直される。** `.ichiki.json` の `ichiki_version` だけ手で直す。
 
-> 実測: `commands/run.md` を新しい手順へ書き換えたのに、案件側は古いコピーのままで、
-> `/run` を叩けば旧手順（AI が1ページずつテンプレートを書く）が動く状態だった。
-> 書き換えた本人が塞げたと思い込んでいた。**静かに壊れるので、検査が要る。**
-
-`doctor` がコピーのズレとバージョン違いを見る。**忘れても気づけるようにしてある。**
+`doctor` がコピーのズレとバージョン違いを見る。ズレていたら、上の `ichiki setup` を
+もう一度流せば直る。
 
 ---
 
@@ -96,40 +93,7 @@ node .claude/ichiki/bin/ichiki.js setup
 | [022-既存htmlからモックアップを作る.md](docs/022-既存htmlからモックアップを作る.md) | 構造化。**見た目が変わってはいけない**局面 |
 | [023-AIに書かせてlintを通す.md](docs/023-AIに書かせてlintを通す.md) | 021・022 共通。AI への頼み方と lint の回し方 |
 | [04-変換して検査する.md](docs/04-変換して検査する.md) | 覚えるコマンドは `gate` と `deliver` の2つ |
-| [壊れやすいところ.md](docs/壊れやすいところ.md) | **Ichiki を直す人向け。** 何度も踏んだ壊れ方と、テストを厚くしている場所 |
-
-手順そのものは重複させていません。上の「はじめる」を手順書が参照しています。
-
-## 考え方
-
-デザインは主観なので人がモックで合意する。構造は客観なので機械が検査する。
-その境目を **モック側の宣言（`data-*`）** で引く。
-
-```html
-<body data-page="single" data-cpt="spot">
-  <section data-section="detail">
-    <h1 data-acf="hero_title">平尾台</h1>
-```
-
-宣言があれば推測は要らない。**宣言が足りなければエラーで停止する。** 推測して埋めない。
-
-規約は `rules/vocabulary.md`（L01〜L31）が**唯一の正**。lint がその実装で、
-両者はルールIDで対応する。`ichiki selftest` がズレを検出する。
-
-`prompts/mockup-generation.md`（AI にモックを作らせる指示書）は**規約を持たない。**
-「まず vocabulary.md を読む」と指示するだけ。以前は規約を再掲していたが、
-語彙が育つたびに両方を直すことになり、`data-acf-type` 15箇所 / `wysiwyg` 20箇所が
-二重に書かれていた。**ルールは1次参照だけにする。**
-
-`rules/` の2ファイルは書くことを分けている。**同じことを2箇所に書かない。**
-
-| | 中身 | 重複したら |
-|---|---|---|
-| `ichiki.md` | 前提・環境・成果物・運用の約束 | 要点だけ書いて vocabulary.md の節番号を指す |
-| `vocabulary.md` | モックの書き方（宣言と L01〜L31） | ここが正 |
-
-実測で、命名規則・タブ分類・繰り返し・共通領域の判定の4箇所が、
-実装が変わったあとも `ichiki.md` に旧方式のまま残っていた。**両方に詳細を書くと必ずズレる。**
+| [壊れやすいところ.md](docs/壊れやすいところ.md) | **Ichiki を直す人向け。** 設計の考え方・中身の構成・何度も踏んだ壊れ方 |
 
 ## 使う
 
@@ -171,30 +135,6 @@ node .claude/ichiki/bin/ichiki.js gate <mockup>
 `ichiki_version` を書いておくと、本体とのバージョン違いを警告する。
 案件ごとに submodule を固定する運用では版ズレが起きるので、**気づけるようにしてある。**
 
-## 構成
-
-```
-bin/ichiki.js     単一入口。使えるものは全部 --help に出る
-src/
-  lint/           規約への適合（L01〜L31）
-  scan.js         → acf-map.yaml / coverage.json / CLAUDE.md（読み取りは converter/ を使う）
-  converter/      → WordPress テーマ
-  verify/         coverage（宣言→出力）/ structure（class の維持）/ live（公開後）
-  a11y/           pa11y + axe（WCAG2AA）
-  visual/         compare（元モック↔制約モック）/ diff（モック↔WP）/ crop
-  testspec/       C1 テスト仕様書 / C3 検収シート / C3付録
-  shared/         lint と変換器が共有する定数・分類・パス正規化
-  gate.js         上を順に流す
-  snapshot.js     出力を凍結し、変わったら落とす
-rules/
-  ichiki.md       前提・環境・成果物の規定・運用の約束（案件をどう進めるか）
-  vocabulary.md   モックの書き方 L01〜L31 と宣言の一覧（モックをどう書くか）
-prompts/          モックアップ生成プロンプト（規約は持たない。vocabulary.md を読ませる）
-templates/        案件用 CLAUDE.md のテンプレート
-commands/         Claude Code のスラッシュコマンド（/setup /run）
-test/             fixture / mockup-bad / expected と自己検査
-```
-
 ## 2本立て
 
 | | | |
@@ -229,17 +169,8 @@ node .claude/ichiki/bin/ichiki.js selftest    # Ichiki 自身の健全性
 `doctor` が見るもの: 依存が入っているか / `.ichiki.json` があるか /
 バージョンが一致しているか / **スラッシュコマンドのコピーが本体と同じか**。
 
-`selftest` が見るもの:
-
-| | |
-|---|---|
-| scan の回帰 | `test/fixture` の出力が `test/expected` と一致するか |
-| ルール同期 | 語彙と lint にルールIDが揃っているか（欠番が実装に残っていないかも見る） |
-| 負のテスト | **全ルールが実際に違反を検出できるか**（`test/mockup-bad`） |
-
-3つ目が要るのは、**検査が通っていても検査自体が壊れていることがある**ため。
-実測で、フィールド突合が名前で照合したまま出力がキー指定に変わり、
-ずっと素通りしていた（3/327 で「通った」と言い続けていた）。
+`selftest`（Ichiki 自身の健全性）の中身は
+[壊れやすいところ.md「テストを厚くしている場所」](docs/壊れやすいところ.md)を見てください。
 
 ## 対象と前提
 
