@@ -19,7 +19,7 @@ const COMMANDS = [
   ['lint',        [SRC, 'lint', 'lint.js'],            '<mockup> [--json] [--allow-unresolved-links]', 'モックが制約語彙に適合しているか'],
   ['a11y',        [SRC, 'a11y', 'check.js'],           '<mockup> [--json] [--site <URL>] [--report <path>]',                            'pa11y + axe（WCAG2AA）'],
   ['scan',        [SRC, 'scan.js'],                    '[mockup] [出力先] [--project <名前>] [--allow-unresolved-links]  ※どちらも既定は案件のルート',                            'acf-map.yaml / coverage.json / CLAUDE.md'],
-  ['build',       [SRC, 'converter', 'convert.js'],    '<mockup> <出力先> [--acf-map <yaml>]',         'WordPress テーマを生成'],
+  ['build',       [SRC, 'converter', 'convert.js'],    '[mockup] [出力先] [--acf-map <yaml>]  ※どちらも既定は.ichiki.json（mockup / wp_root+local_site_container+theme_slug）',         'WordPress テーマを生成'],
   ['verify',      [SRC, 'verify', 'coverage.js'],      '<mockup> <theme>',                             '宣言 → the_field() が出力されているか'],
   ['verify:structure', [SRC, 'verify', 'structure.js'],'<mockup> <theme>',                             'モックの class が生成物に残っているか'],
   ['verify:live', [SRC, 'verify', 'live.js'],          '<mockup> <URL>',                               '公開後のサイトを取得して突き合わせる'],

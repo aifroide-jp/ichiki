@@ -8,7 +8,7 @@ const { findHtmlFiles } = require('./lib/discover');
 const { loadPage } = require('./lib/load-page');
 const { ErrorCollector } = require('./lib/errors');
 const { buildModel } = require('./lib/model');
-const { readConfig } = require('../shared/project-config');
+const { readConfig, themeDir, themeSlug } = require('../shared/project-config');
 const { loadAcfMap, checkAgainstModel, checkFieldTypes } = require('./lib/acf-map');
 const { copyAssets } = require('./lib/gen/assets');
 const {
@@ -95,12 +95,27 @@ function main() {
   const acfMapPath = acfMapIdx >= 0 ? argv[acfMapIdx + 1] : null;
   const positional = argv.filter((a, i) => !a.startsWith('--') && argv[i - 1] !== '--acf-map');
   const [mockupDirArg, outDirArg] = positional;
-  if (!mockupDirArg || !outDirArg) {
-    console.error('使い方: node convert.js <mockupDir> <outDir> [--allow-unresolved-links] [--acf-map <acf-map.yaml>]');
+
+  // 両方とも省略できる。省略時は .ichiki.json（cwd から探す。gate.js と同じ規則）から取る。
+  // mockup は conf.mockup。出力先は wp_root + local_site_container + theme_slug から機械的に組み立てる
+  // （themeDir()。theme_dir を直書きしていればそちらを優先）。
+  // 引数があればそちらが優先（fixture を任意の場所に置いて試すときなど）。
+  const { conf: cwdConf } = readConfig(process.cwd());
+
+  const mockupDirResolved = mockupDirArg || cwdConf.mockup;
+  const outDirResolved = outDirArg || themeDir(cwdConf);
+  if (!mockupDirResolved || !outDirResolved) {
+    if (!mockupDirResolved) {
+      console.error('モックの場所が分かりません。引数で渡すか、.ichiki.json に mockup を書いてください。');
+    }
+    if (!outDirResolved) {
+      console.error('テーマの置き場所が分かりません。引数で渡すか、.ichiki.json に wp_root と local_site_container を書いてください。');
+    }
+    console.error('使い方: node convert.js [mockupDir] [outDir] [--allow-unresolved-links] [--acf-map <acf-map.yaml>]');
     process.exit(2);
   }
-  const mockupDir = path.resolve(mockupDirArg);
-  const outDir = path.resolve(outDirArg);
+  const mockupDir = path.resolve(mockupDirResolved);
+  const outDir = path.resolve(outDirResolved);
 
   if (!fs.existsSync(mockupDir)) {
     console.error(`入力ディレクトリが存在しません: ${mockupDir}`);
@@ -131,7 +146,7 @@ function main() {
     // `<title>` の区切り文字は案件の設定（.ichiki.json）。既定は " | "。
     model = buildModel(pages, errors, { titleSeparator: conf.title_separator });
     // テーマのフォルダ名。案件の設定から決まる（環境依存の theme_dir からは導かない）
-    model.themeSlug = conf.theme_slug || conf.project || 'theme';
+    model.themeSlug = themeSlug(conf);
 
     if (acfMapPath) {
       const map = loadAcfMap(path.resolve(acfMapPath));

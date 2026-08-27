@@ -59,17 +59,16 @@ function localSites() {
       app: 'Local',
       name: s.name || path.basename(root),
       url: s.domain ? `http://${s.domain}` : null,
+      // .ichiki.json の wp_root / local_site_container にそのまま貼れる形で持つ
+      // （root = <wp_root>/<local_site_container>）。
+      wpRoot: path.dirname(root),
+      container: path.basename(root),
       publicDir: pub,
       phpVersion: s.phpVersion || null,
       exists: fs.existsSync(path.join(pub, 'wp-config.php')),
     });
   }
   return out;
-}
-
-// theme_dir を組み立てる
-function themeDirFor(site, slug) {
-  return path.join(site.publicDir, 'wp-content', 'themes', slug);
 }
 
 // gate の `php -l` に使う php を探す。
@@ -151,4 +150,4 @@ function runsAsPhp(bin) {
   }
 }
 
-module.exports = { localSitesFile, localSites, themeDirFor, findPhp };
+module.exports = { localSitesFile, localSites, findPhp };

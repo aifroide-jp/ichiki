@@ -35,7 +35,7 @@ node .claude/ichiki/bin/ichiki.js setup
 
 **Windows でもそのまま動きます**（node で書いてあるので `sh` は要りません）。
 
-最後に `.ichiki.json` の `theme_dir` と `site_url` を手で書きます。
+最後に `.ichiki.json` の `wp_root` / `local_site_container` / `site_url` を手で書きます。
 **機械には分からない値**（WordPress の場所と URL）なので、そこだけ残しています。
 書いたら `node .claude/ichiki/bin/ichiki.js doctor` で確認できます。
 
@@ -68,7 +68,7 @@ node .claude/ichiki/bin/ichiki.js deliver   # 公開後の検査 → 検収成�
 ```
 
 引数は要りません。モックの場所もサイトの URL も `.ichiki.json` が持っています
-（`setup`/`scan` が生成する設定。人が書き足すのは `theme_dir` と `site_url` だけ）。
+（`setup`/`scan` が生成する設定。人が書き足すのは `wp_root` / `local_site_container` / `site_url` だけ）。
 
 この2つの使い分け・内訳・詰まったときの対処は
 [03-変換して検査する.md](docs/03-変換して検査する.md) にまとめてあります。

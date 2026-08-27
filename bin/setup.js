@@ -119,7 +119,7 @@ if (missing.length) {
 // **アプリの実行ファイルは探さない**（理由は src/shared/wp-env.js の頭）。
 // Local のサイト台帳を読む。見つかれば .ichiki.json に貼る値まで出せる。
 // Ichiki の前提は Local 一本（rules/ichiki.md「プロジェクト前提」）。他の環境は見ない。
-const { localSites, themeDirFor, localSitesFile } = require('../src/shared/wp-env');
+const { localSites, localSitesFile } = require('../src/shared/wp-env');
 const sites = localSites();
 
 if (sites.length) {
@@ -128,17 +128,20 @@ if (sites.length) {
     console.log(`   ${s.name}  ${s.url}${s.exists ? '' : '  ※ wp-config.php が無い（未作成かも）'}`);
   }
   console.log('');
-  console.log('   .ichiki.json にはこう書きます（theme_slug は案件名）:');
+  // どのサイトがこの案件のものかは分からないので、1件目を**例**として出す。
+  // 実際にどれを使うかは人が選ぶ（名前から当てにいく処理は持たない）。
   const s = sites[0];
-  console.log(`     "site_url":  "${s.url}"`);
-  console.log(`     "theme_dir": ${JSON.stringify(themeDirFor(s, '<theme_slug>'))}`);
+  console.log(`   .ichiki.json にはこう書きます（例: ${s.name}。この案件のサイトを選んでください）:`);
+  console.log(`     "site_url":             "${s.url}"`);
+  console.log(`     "wp_root":              ${JSON.stringify(s.wpRoot)}`);
+  console.log(`     "local_site_container": ${JSON.stringify(s.container)}`);
 } else {
   // ここで初めて案内する。**入っている人には出さない。**
   // 実測: 以前はこの文を無条件に出していたため、Local が入っている Windows で
   // 「入っていない」と読まれた。
   console.log('※ Local が見つかりません。入れてください: https://localwp.com/');
   console.log(`   入れてあるのに出るときは、台帳が見つかっていません: ${localSitesFile()}`);
-  console.log('   後で .ichiki.json の site_url と theme_dir にその場所を書きます。');
+  console.log('   後で .ichiki.json の site_url / wp_root / local_site_container にその場所を書きます。');
 }
 
 if (!has('wp')) {

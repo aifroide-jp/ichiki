@@ -35,7 +35,7 @@ const { findHtmlFiles } = require('./converter/lib/discover');
 const { loadPage } = require('./converter/lib/load-page');
 const { ErrorCollector } = require('./converter/lib/errors');
 const { buildModel, collectFieldsIn } = require('./converter/lib/model');
-const { readConfig, writeConfig, FILENAME, DEFAULT_BEFORE_DIR, DEFAULT_PLUGINS } = require('./shared/project-config');
+const { readConfig, writeConfig, FILENAME, DEFAULT_BEFORE_DIR, DEFAULT_PLUGINS, themeSlug } = require('./shared/project-config');
 const { DEFAULT_SEPARATOR, deriveTitleSuffix } = require('./shared/site-title');
 const { orderOf } = require('./shared/page-order');
 
@@ -158,11 +158,22 @@ function ensureProjectConfig(confPath, conf, rootDir, projectName, model, titleS
     added.push(`mockup: ${next.mockup}`);
   }
   if (!next.theme_slug) {
-    // 本番のテーマフォルダ名。案件名をそのまま使う（英小文字・数字・ハイフン）。
-    next.theme_slug = String(next.project || 'theme').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
+    // 本番のテーマフォルダ名。既定は `<案件名>_theme`（英小文字・数字・ハイフン）。
+    const slugified = String(next.project || 'theme').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
+    next.theme_slug = themeSlug({ project: slugified });
     added.push(`theme_slug: ${next.theme_slug}`);
   }
-  if (next.theme_dir === undefined) { next.theme_dir = ''; added.push('theme_dir: （未設定。書いてください）'); }
+  if (next.wp_root === undefined && next.local_site_container === undefined && next.theme_dir === undefined) {
+    next.wp_root = '';
+    next.local_site_container = '';
+    added.push(
+      'wp_root: （未設定。Local がサイトを置いているディレクトリを書いてください。例: "/Users/…/Local Sites"）'
+    );
+    added.push(
+      'local_site_container: （未設定。wp_root 直下にあるこの案件のサイトのフォルダ名を書いてください。' +
+        '案件名と同じとは限りません。Local のサイト一覧で確認してください）'
+    );
+  }
   if (next.site_url === undefined) { next.site_url = ''; added.push('site_url: （未設定。書いてください）'); }
   if (next.title_separator === undefined) {
     // モックから採った値（採れなければ既定）。**推測ではない。**

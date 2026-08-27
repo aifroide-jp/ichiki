@@ -3,11 +3,29 @@
 // 案件設定（.ichiki.json）の読み書き。**唯一の実装。**
 //
 // モックの構造ではなく「案件の体裁・環境」を持つ。
-//   project / mockup / theme_slug / theme_dir / site_url / ichiki_version / plugins_required
+//   project / mockup / theme_slug / wp_root / local_site_container / theme_dir /
+//   site_url / ichiki_version / plugins_required
 //
-//   theme_slug  … 本番に置くテーマのフォルダ名。**環境依存の theme_dir から導かない。**
-//                 theme_dir は検証環境の絶対パスで、そこから拾うと本番の
-//                 テーマ名が検証環境の都合で決まる（実測: "nkk-poc" になっていた）。
+//   theme_slug            … 本番に置くテーマのフォルダ名（＝WordPressのテーマ名）。
+//                            未設定なら `<project>_theme` を使う（`themeSlug()`）。
+//                            **どの Local サイトを使うかとは無関係の、成果物側の名前。**
+//                            本番リリース手順書（release/generate.js）が
+//                            テーマ名・zip名・本番ビルドコマンドにそのまま使う。
+//   wp_root               … Local がサイトを置いているディレクトリ（例: `~/Local Sites`）。
+//                            1台のマシンでは全案件共通の値になることが多い。
+//   local_site_container  … `wp_root` の直下にある、この案件のサイトのフォルダ名
+//                            （例: `old-nature-kitakyushu-mock`）。案件名から機械的に
+//                            決まらない（実測: `nature-kitakyushu` という案件名でも
+//                            Local 側のフォルダは `old-nature-kitakyushu-mock` だった）ので、
+//                            ここだけは人が書く。
+//                            配置先は `themeDir()` が
+//                              wp_root + '/' + local_site_container + '/app/public/wp-content/themes/' + theme_slug
+//                            で機械的に組み立てる。Local 自身のサイト台帳（sites.json）は読まない
+//                            （読むと「名前が変わっていたら」「台帳が壊れていたら」を
+//                            考える必要が増える。wp_root と local_site_container の2つを
+//                            素直にパス結合するほうが単純で壊れにくい）。
+//   theme_dir             … 旧来の書き方（配置先そのものを直書き）。互換のため残す。
+//                            書いてあれば wp_root/local_site_container より優先する。
 //   title_separator ← `<title>` の区切り文字（ページごとに変わらないのでここ）
 //   retrofit        ← 構造化が途中であることの宣言（下記）
 //
@@ -74,6 +92,8 @@ const ORDER = [
   'project',
   'mockup',
   'theme_slug',
+  'wp_root',
+  'local_site_container',
   'theme_dir',
   'site_url',
   'title_separator',
@@ -89,4 +109,31 @@ function writeConfig(filePath, conf) {
   fs.writeFileSync(filePath, JSON.stringify(out, null, 2) + '\n', 'utf8');
 }
 
-module.exports = { FILENAME, DEFAULT_BEFORE_DIR, DEFAULT_PLUGINS, findConfigPath, readConfig, writeConfig };
+// 本番のテーマ名。**環境依存のパスから導かない。**
+// 未設定なら `<project>_theme`。project 自体が無ければ 'theme'。
+function themeSlug(conf) {
+  if (conf.theme_slug) return conf.theme_slug;
+  return `${conf.project || 'theme'}_theme`;
+}
+
+// テーマの実際の配置先を1箇所で計算する。**呼び出し側ごとに組み立てさせない。**
+// theme_dir（配置先を直書きする旧来の書き方）があれば互換のためそれを優先する。
+// 無ければ wp_root + local_site_container + 'app/public/wp-content/themes' + theme_slug
+// で機械的に組み立てる。wp_root か local_site_container が無ければ null
+// （呼び出し側が「引数で渡すか設定に書け」で止める）。
+function themeDir(conf) {
+  if (conf.theme_dir) return conf.theme_dir;
+  if (!conf.wp_root || !conf.local_site_container) return null;
+  return path.join(conf.wp_root, conf.local_site_container, 'app', 'public', 'wp-content', 'themes', themeSlug(conf));
+}
+
+module.exports = {
+  FILENAME,
+  DEFAULT_BEFORE_DIR,
+  DEFAULT_PLUGINS,
+  findConfigPath,
+  readConfig,
+  writeConfig,
+  themeSlug,
+  themeDir,
+};
