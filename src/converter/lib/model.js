@@ -254,10 +254,12 @@ function buildModel(pages, errors, opts = {}) {
       const name = $(el).attr('data-common');
       const html = normalizeOuterForCompare(outerHtml(page, el), page.relPath);
       const entry = model.commonMap.get(name);
-      // 各ページの data-common="header" を覚えておく。
-      // header.php の素材は基準ページ1枚だが、「<header> と <main> の間に
-      // 宣言の無い要素が無いか」は全ページで見る必要がある（templates.js 参照）。
+      // 各ページの data-common="header"/"footer" を覚えておく。
+      // header.php/footer.php の素材は基準ページ1枚だが、「<header>と<main>の間」
+      // 「</footer>と</body>の間」に宣言の無い要素が無いかは全ページで見る必要がある
+      // （templates.js 参照）。
       if (name === 'header') page.commonHeaderEl = el;
+      if (name === 'footer') page.commonFooterEl = el;
 
       if (!entry) {
         model.commonMap.set(name, { el, page, html, tag: (el.name || '').toLowerCase() });

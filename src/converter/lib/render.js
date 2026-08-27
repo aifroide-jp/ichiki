@@ -244,6 +244,23 @@ function renderFragment(page, model, el, includeSelf, errors, scopeSlug) {
       return;
     }
 
+    const skipRecurse = applyFieldAndLinkEdits(node);
+
+    if (!skipRecurse) {
+      for (const c of node.children || []) visit(c);
+    }
+  }
+
+  // data-acf / data-acf-url を the_field() 呼び出しへ、<a> の href を固定リンクへ変換する。
+  // visit() の通常ノードだけでなく、includeSelf=true のルート要素自身にも要る
+  // （例: <a data-common="mobile_cta" data-acf="mobile_cta_label">）。
+  // ルートは data-common を再帰処理させたくないので visit(el) は呼べないが、
+  // ラベル/URLの置換まで一緒に諦めると、モックの文言がそのまま焼き込まれて消える
+  // （実測: template-parts/common-mobile_cta.php の中身が the_field() にならなかった）。
+  function applyFieldAndLinkEdits(node) {
+    const attrs = node.attribs || {};
+    const nloc = node.sourceCodeLocation;
+    const line = nloc ? nloc.startLine : null;
     const hasAcf = 'data-acf' in attrs;
     const hasAcfUrl = 'data-acf-url' in attrs;
     let skipRecurse = false;
@@ -270,10 +287,7 @@ function renderFragment(page, model, el, includeSelf, errors, scopeSlug) {
         if (edit) addAbs(edit.start, edit.end, edit.replacement);
       }
     }
-
-    if (!skipRecurse) {
-      for (const c of node.children || []) visit(c);
-    }
+    return skipRecurse;
   }
 
   if (includeSelf) {
@@ -294,7 +308,10 @@ function renderFragment(page, model, el, includeSelf, errors, scopeSlug) {
       );
     } else {
       stripAllDataAttrs(el);
-      for (const c of el.children || []) visit(c);
+      const skipRecurse = applyFieldAndLinkEdits(el);
+      if (!skipRecurse) {
+        for (const c of el.children || []) visit(c);
+      }
     }
   } else {
     for (const c of el.children || []) visit(c);

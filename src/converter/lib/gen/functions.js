@@ -2,6 +2,7 @@
 
 const { CPT_PREFIX } = require('../constants');
 const { phpSingleQuote } = require('../php-util');
+const { cssBasePath, cssPagePath, jsMainPath, jsPagePath } = require('../asset-paths');
 
 // 管理画面に表示するメニュー位置の名前。宣言名から機械的に作れないものだけ持つ。
 const NAV_LABELS = {
@@ -140,15 +141,15 @@ function generateFunctionsPhp(model, errors) {
   // --- アセット(css)のenqueue。vocabulary.md 7章の css/base.css + css/page/*.css 構成に対応 ---
   lines.push('function nkk_enqueue_assets() {');
   lines.push("    $dir = get_template_directory_uri();");
-  lines.push("    wp_enqueue_style( 'nkk-base', $dir . '/assets/css/base.css', array(), null );");
+  lines.push(`    wp_enqueue_style( 'nkk-base', $dir . '/assets/${cssBasePath()}', array(), null );`);
   lines.push('');
   lines.push('    if ( is_front_page() ) {');
-  lines.push("        wp_enqueue_style( 'nkk-page-front', $dir . '/assets/css/page/front.css', array( 'nkk-base' ), null );");
+  lines.push(`        wp_enqueue_style( 'nkk-page-front', $dir . '/assets/${cssPagePath('front')}', array( 'nkk-base' ), null );`);
   lines.push('    }');
   for (const pageId of model.pageMap.keys()) {
     lines.push(`    if ( is_page_template( 'page-${pageId}.php' ) ) {`);
     lines.push(
-      `        wp_enqueue_style( 'nkk-page-${pageId}', $dir . '/assets/css/page/${pageId}.css', array( 'nkk-base' ), null );`
+      `        wp_enqueue_style( 'nkk-page-${pageId}', $dir . '/assets/${cssPagePath(pageId)}', array( 'nkk-base' ), null );`
     );
     lines.push('    }');
   }
@@ -156,7 +157,7 @@ function generateFunctionsPhp(model, errors) {
     const postType = `${CPT_PREFIX}${cpt}`;
     lines.push(`    if ( is_singular( '${postType}' ) || is_post_type_archive( '${postType}' ) ) {`);
     lines.push(
-      `        wp_enqueue_style( 'nkk-page-${cpt}', $dir . '/assets/css/page/${cpt}.css', array( 'nkk-base' ), null );`
+      `        wp_enqueue_style( 'nkk-page-${cpt}', $dir . '/assets/${cssPagePath(cpt)}', array( 'nkk-base' ), null );`
     );
     lines.push('    }');
   }
@@ -165,7 +166,7 @@ function generateFunctionsPhp(model, errors) {
   // （絞り込みは data-type / data-category を読むので、宣言以外の data-* を
   //  残す処理と対で意味を持つ）。
   lines.push('');
-  lines.push("    wp_enqueue_script( 'nkk-main', $dir . '/assets/js/main.js', array(), null, true );");
+  lines.push(`    wp_enqueue_script( 'nkk-main', $dir . '/assets/${jsMainPath()}', array(), null, true );`);
 
   // 外部の CSS（Leaflet 等）。ページごとに要否が違うので enqueue で出す。
   for (const [i, ext] of (model.externalCss || []).entries()) {
@@ -232,7 +233,7 @@ function generateFunctionsPhp(model, errors) {
       lines.push('');
       lines.push('    if ( is_front_page() ) {');
       lines.push(
-        `        wp_enqueue_script( 'nkk-js-front', $dir . '/assets/js/page/front.js', array( ${jsDeps} ), null, true );`
+        `        wp_enqueue_script( 'nkk-js-front', $dir . '/assets/${jsPagePath('front')}', array( ${jsDeps} ), null, true );`
       );
       lines.push('    }');
     }
@@ -240,7 +241,7 @@ function generateFunctionsPhp(model, errors) {
       if (!model.pageJs.has(pageId)) continue;
       lines.push(`    if ( is_page_template( 'page-${pageId}.php' ) ) {`);
       lines.push(
-        `        wp_enqueue_script( 'nkk-js-${pageId}', $dir . '/assets/js/page/${pageId}.js', array( ${jsDeps} ), null, true );`
+        `        wp_enqueue_script( 'nkk-js-${pageId}', $dir . '/assets/${jsPagePath(pageId)}', array( ${jsDeps} ), null, true );`
       );
       lines.push('    }');
     }
@@ -249,7 +250,7 @@ function generateFunctionsPhp(model, errors) {
       const postType = `${CPT_PREFIX}${cpt}`;
       lines.push(`    if ( is_singular( '${postType}' ) || is_post_type_archive( '${postType}' ) ) {`);
       lines.push(
-        `        wp_enqueue_script( 'nkk-js-${cpt}', $dir . '/assets/js/page/${cpt}.js', array( ${jsDeps} ), null, true );`
+        `        wp_enqueue_script( 'nkk-js-${cpt}', $dir . '/assets/${jsPagePath(cpt)}', array( ${jsDeps} ), null, true );`
       );
       lines.push('    }');
     }

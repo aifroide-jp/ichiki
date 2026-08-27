@@ -323,6 +323,29 @@ function main() {
   // 割り出しは lint L32 と同じ関数なので、lint が通ったモックなら必ず一致する。
   const titleSeparator = conf.title_separator || separatorFromMockup(loaded) || DEFAULT_SEPARATOR;
   const model = buildModel(loaded, errors, { titleSeparator });
+
+  // css/base.css・css/page/<id or cpt>.css・js/main.js（vocabulary.md 7章）が
+  // 実在するかを、この時点（=モック作成プロンプトが「完成」とみなす lint/a11y/scan の範囲）
+  // で検査する。
+  //
+  // 以前は build（gen/assets.js）まで進まないと気づけなかった。build が見るのは
+  // css/js ディレクトリの有無だけで、data-page/data-cpt の集合から必要になる
+  // 個別ファイル（例: css/page/spot.css）までは見ていない。lint・a11y・scan を
+  // 「完成」の基準にしているモック作成プロンプト（prompts/mockup-generation.md）と
+  // 実際の変換要件がズレており、完成したはずのモックが build で初めて止まっていた。
+  //
+  // パスの組み立ては gen/functions.js（enqueue）と同じ asset-paths.js を使う。
+  // ここだけ別の規約を書くと、変わったときに片方だけ直り忘れて食い違う。
+  {
+    const { requiredAssetPaths } = require('./converter/lib/asset-paths');
+    const required = requiredAssetPaths(model);
+    for (const rel of [...required.css, ...required.js]) {
+      if (!fs.existsSync(path.join(rootDir, rel))) {
+        errors.add('(assets)', null, `${rel} が見つかりません(vocabulary.md 7章の固定パス規約。build まで気づけません)`);
+      }
+    }
+  }
+
   errors.throwIfAny();
 
   const pages = [];

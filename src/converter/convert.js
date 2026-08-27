@@ -171,7 +171,8 @@ function main() {
     if (headerPhp) outputFiles.set('header.php', headerPhp);
     const footerPhp = generateFooterPhp(model, errors);
     if (footerPhp) outputFiles.set('footer.php', footerPhp);
-    for (const part of generateCommonTemplateParts(model, errors)) {
+    const commonParts = generateCommonTemplateParts(model, errors);
+    for (const part of commonParts) {
       outputFiles.set(part.filename, part.content);
     }
 
@@ -214,6 +215,32 @@ function main() {
     if (seedMenus) outputFiles.set('inc/seed-menus.php', seedMenus);
     // モックの値をそのまま初期データとして投入する（テンプレートだけでは中身が空になる）
     outputFiles.set('inc/seed-posts.php', generateSeedPostsPhp(model));
+
+    // --- 保険策: 孤立した template-parts/common-*.php を検出する ---
+    //
+    // header.php / footer.php が直接展開し損ねた data-common は、
+    // generateCommonTemplateParts() が「まだ拾われていない独立した共通領域」と
+    // 誤認してファイルを作ってしまう。しかしそれを呼ぶ get_template_part() を
+    // 生成するコードはどこにも無いので、実サイトからは静かに消える
+    // （フィールドは登録される・ファイルはできる・でも誰も呼ばない、という
+    // 二重に静かな失敗。実測: </footer> と </body> の間の data-common）。
+    //
+    // 「生成したのに誰も呼んでいない」は機械的に検出できるので、
+    // 個別の生成漏れを直すたびに再発するのを待たず、ここで一括して止める
+    // （vocabulary.md 設計原則3: エスケープハッチを作らない）。
+    for (const part of commonParts) {
+      const callToken = `get_template_part( '${part.filename.replace(/\.php$/, '')}'`;
+      const referenced = [...outputFiles].some(([rel, content]) => rel !== part.filename && content.includes(callToken));
+      if (!referenced) {
+        errors.add(
+          '(model)',
+          null,
+          `${part.filename} を生成しましたが、テーマ内のどこからも get_template_part() されていません` +
+            '(data-common の内容がどのページにも出力されないまま孤立しています。' +
+            'header.php/footer.php 側の展開漏れの可能性があります)'
+        );
+      }
+    }
 
     errors.throwIfAny();
   } catch (e) {
