@@ -65,7 +65,7 @@ submodule を進めてから、**上と同じセットアップコマンドを�
 ```bash
 cd .claude/ichiki
 git fetch
-git checkout <新しいコミット>
+git checkout origin/main
 cd ../..
 node .claude/ichiki/bin/ichiki.js setup
 ```
