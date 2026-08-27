@@ -102,5 +102,5 @@ git mv <ルートのページ一式> .ichiki/mockup-before/
 ## この先
 
 - lint に error / warn が出たときの読み方 → [023-AIに書かせてlintを通す.md](023-AIに書かせてlintを通す.md)
-- 全ページ済んだら → [04-変換して検査する.md](04-変換して検査する.md)
+- 全ページ済んだら → [03-変換して検査する.md](03-変換して検査する.md)
 - 規約の詳細 → [`rules/ichiki.md`「構造化」](../rules/ichiki.md)

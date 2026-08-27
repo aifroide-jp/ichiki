@@ -9,8 +9,8 @@
 
 | | 何のため | 入手先 |
 |---|---|---|
-| Node.js 18+ | Ichiki 自体の実行（node で書かれている） | https://nodejs.org/（LTS版） |
-| Local | WordPress の開発環境。サイト起動と PHP をこれ1つでまかなう | https://localwp.com/ |
+| Node.js 22+ | Ichiki 自体の実行（node で書かれている） | [node LTS版](https://nodejs.org/ja) |
+| Local | WordPress の開発環境。サイト起動と PHP をこれ1つでまかなう | [Local](https://localwp.com/) |
 
 git は既に入っている前提（無ければ `ichiki setup` が入れ方を案内して止まる）。
 
@@ -92,8 +92,8 @@ node .claude/ichiki/bin/ichiki.js setup
 | [021-モックアップを作る.md](docs/021-モックアップを作る.md) | 新規に書く。覚えるコマンドは `lint` 1つ |
 | [022-既存htmlからモックアップを作る.md](docs/022-既存htmlからモックアップを作る.md) | 構造化。**見た目が変わってはいけない**局面 |
 | [023-AIに書かせてlintを通す.md](docs/023-AIに書かせてlintを通す.md) | 021・022 共通。AI への頼み方と lint の回し方 |
-| [04-変換して検査する.md](docs/04-変換して検査する.md) | 覚えるコマンドは `gate` と `deliver` の2つ |
-| [壊れやすいところ.md](docs/壊れやすいところ.md) | **Ichiki を直す人向け。** 設計の考え方・中身の構成・何度も踏んだ壊れ方 |
+| [03-変換して検査する.md](docs/03-変換して検査する.md) | 覚えるコマンドは `gate` と `deliver` の2つ |
+| [開発者向け資料.md](docs/開発者向け資料.md) | **Ichiki を直す人向け。** 設計の考え方・中身の構成・何度も踏んだ壊れ方 |
 
 ## 使う
 
@@ -170,7 +170,7 @@ node .claude/ichiki/bin/ichiki.js selftest    # Ichiki 自身の健全性
 バージョンが一致しているか / **スラッシュコマンドのコピーが本体と同じか**。
 
 `selftest`（Ichiki 自身の健全性）の中身は
-[壊れやすいところ.md「テストを厚くしている場所」](docs/壊れやすいところ.md)を見てください。
+[開発者向け資料.md「テストを厚くしている場所」](docs/開発者向け資料.md)を見てください。
 
 ## 対象と前提
 
