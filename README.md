@@ -42,39 +42,8 @@ node .claude/ichiki/bin/ichiki.js setup
 **上のコマンドは何度流しても既存のファイルを壊しません。** `README.md` と `CLAUDE.md` は
 無いときだけ作ります。更新のときも同じものを流せます。
 
-<details><summary>セットアップコマンドが何をしているか</summary>
-
-```bash
-1. 手元の道具を見る（node / npm / git が無ければ入れ方を出して止まる）
-2. .claude/ichiki で npm install
-3. .claude/ichiki で npx playwright install chromium
-4. .claude/ichiki/commands/*.md を .claude/commands/ へコピー
-5. scan（.ichiki.json / acf-map.yaml / CLAUDE.md / README.md）
-6. doctor
-```
-
-</details>
-
 コマンドの配置が要るのは、**Claude Code が `.claude/commands/` しか見ない**ため。
 `.claude/ichiki/commands/` に置いても認識されないのでコピーする。
-
-### 更新するとき
-
-submodule を進めてから、**上と同じセットアップコマンドを流す**。
-
-```bash
-cd .claude/ichiki
-git fetch
-git checkout origin/main
-cd ../..
-node .claude/ichiki/bin/ichiki.js setup
-```
-
-上のコマンドは既存のファイルを壊さないので、初回と同じものを流せる。
-**コマンドのコピーもやり直される。** `.ichiki.json` の `ichiki_version` だけ手で直す。
-
-`doctor` がコピーのズレとバージョン違いを見る。ズレていたら、上のセットアップコマンドを
-もう一度流せば直る。
 
 ---
 
@@ -91,75 +60,25 @@ node .claude/ichiki/bin/ichiki.js setup
 | [03-変換して検査する.md](docs/03-変換して検査する.md) | 覚えるコマンドは `gate` と `deliver` の2つ |
 | [開発者向け資料.md](docs/開発者向け資料.md) | **Ichiki を直す人向け。** 設計の考え方・中身の構成・何度も踏んだ壊れ方 |
 
-## 使う
+## よく使うコマンド（gate と deliver）
 
 ```bash
-# 1. モックが規約に適合しているか
-node .claude/ichiki/bin/ichiki.js lint <mockup>
-
-# 2. フィールド台帳を出す
-node .claude/ichiki/bin/ichiki.js scan
-
-# 3. テーマを生成する
-node .claude/ichiki/bin/ichiki.js build <mockup> <テーマの置き場所> --acf-map <出力先>/acf-map.yaml
-
-# まとめて（lint → a11y → scan → build → 検証 → php -l）
-node .claude/ichiki/bin/ichiki.js gate <mockup>
+node .claude/ichiki/bin/ichiki.js gate      # モック → テーマの検証（サイトは要らない）
+node .claude/ichiki/bin/ichiki.js deliver   # 公開後の検査 → 検収成果物 → リリース手順書
 ```
 
-案件ごとの設定は案件リポジトリの `.ichiki.json` に置く。
+引数は要りません。モックの場所もサイトの URL も `.ichiki.json` が持っています
+（`setup`/`scan` が生成する設定。人が書き足すのは `theme_dir` と `site_url` だけ）。
 
-```jsonc
-{
-  "project": "案件名",
-  "mockup": "./",
-  "theme_dir": "…/wp-content/themes/…",
-  "site_url": "http://localhost:10000",
-  "ichiki_version": "0.3.0",
+この2つの使い分け・内訳・詰まったときの対処は
+[03-変換して検査する.md](docs/03-変換して検査する.md) にまとめてあります。
+`lint` `scan` `build` を個別に叩きたいときも同じ文書を見てください。
 
-  // 検収成果物の出力先・形式。書かなければ既定
-  "testspec": {
-    "out_dir": "docs/検収",
-        "visual_report": "visual/report"         // diff の出力先
-  }
-}
-```
-
-`testspec.visual_*` を書くと、C1 に `diff` の差異率が入る。
-**書かなければ「未実行」と明記される**（自動 OK 扱いにはしない）。
-
-`ichiki_version` を書いておくと、本体とのバージョン違いを警告する。
-案件ごとに submodule を固定する運用では版ズレが起きるので、**気づけるようにしてある。**
-
-## 2本立て
-
-| | | |
-|---|---|---|
-| `gate` | モック → テーマ | サイト不要 |
-| （テーマを WordPress に入れる） | | |
-| `deliver` | 公開後のサイト → 成果物 | **サイトが要る** |
-
-`deliver` が束ねるもの（この順でないと成立しない）:
-
-| | |
-|---|---|
-| `verify:live` | 宣言どおりに出ているか |
-| `diff --both` | 見た目（デスクトップ＋モバイル） |
-| `a11y --site` | アクセシビリティ |
-| `testspec` | C1 / C3 / ガイド。**上の2つのレポートを読む** |
-| `release` | リリース手順書 |
-
-`diff` と `a11y` を先に回さないと `testspec` が「未実行」で出る。
-欠けても止まらないので、順番を人に覚えさせない。
-
-落ちた段は**要約1行と、詳細を見るコマンド**だけ出す
-（全部貼ると実測で506行になり、読まれない）。
-
-## 検査
+## 案件のセットアップ状態を見る（doctor と selftest）
 
 ```bash
-node .claude/ichiki/bin/ichiki.js doctor      # 案件側の受け入れ状態（依存・設定・コマンドのコピー）
-node .claude/ichiki/bin/ichiki.js selftest    # Ichiki 自身の健全性
+node .claude/ichiki/bin/ichiki.js doctor      # setup/更新の直後に。案件側の受け入れ状態を見る
+node .claude/ichiki/bin/ichiki.js selftest    # Ichiki自体を直した直後に。Ichiki自身の健全性を見る
 ```
 
 `doctor` が見るもの: 依存が入っているか / `.ichiki.json` があるか /
@@ -167,6 +86,27 @@ node .claude/ichiki/bin/ichiki.js selftest    # Ichiki 自身の健全性
 
 `selftest`（Ichiki 自身の健全性）の中身は
 [開発者向け資料.md「テストを厚くしている場所」](docs/開発者向け資料.md)を見てください。
+
+---
+
+### Ichikiを更新するとき
+
+submodule を進めてから、**上と同じセットアップコマンドを流す**。
+
+```bash
+# 案件リポジトリのルートから
+cd .claude/ichiki
+git fetch
+git checkout origin/main
+cd ../..
+node .claude/ichiki/bin/ichiki.js setup
+```
+
+上のコマンドは既存のファイルを壊さないので、初回と同じものを流せる。
+**コマンドのコピーもやり直される。** `.ichiki.json` の `ichiki_version` だけ手で直す。
+
+`doctor` がコピーのズレとバージョン違いを見る。ズレていたら、上のセットアップコマンドを
+もう一度流せば直る。
 
 ---
 
