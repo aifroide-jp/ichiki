@@ -155,7 +155,7 @@ step('php -l', null, null, { php: true });
 // blocking:false だったので gate は続行し、誰も気づかないまま残っていた。
 
 function runPhpLint() {
-  // PATH に無ければ Local 同梱の php を借りる（Herd を要求しないため）
+  // PATH に無ければ Local 同梱の php を借りる
   const { findPhp } = require('./shared/wp-env');
   const found = findPhp((c) => spawnSync(c, ['-v'], { stdio: 'ignore' }).status === 0);
   if (!found) {
