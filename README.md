@@ -5,6 +5,12 @@
 
 ---
 
+## 対象と前提
+
+WordPress 6.5+ / PHP 8.1+ / クラシックテーマ。
+必須プラグイン: Advanced Custom Fields（無料版）/ Safe SVG / Contact Form 7。
+ACF PRO 専用機能（Repeater / Flexible Content / オプションページ）には依存しない。
+
 ## 事前に入れておくもの（Mac / Windows 共通。この2つだけ）
 
 | | 何のため | 入手先 |
@@ -12,7 +18,7 @@
 | Node.js 24+ | Ichiki 自体の実行（node で書かれている） | [node LTS版](https://nodejs.org/ja) |
 | Local | WordPress の開発環境。サイト起動と PHP をこれ1つでまかなう | [Local](https://localwp.com/) |
 
-git は既に入っている前提（無ければ `ichiki setup` が入れ方を案内して止まる）。
+git は既に入っている前提（無ければ、下のセットアップコマンドが入れ方を案内して止まる）。
 
 ---
 
@@ -31,20 +37,20 @@ node .claude/ichiki/bin/ichiki.js setup
 
 最後に `.ichiki.json` の `theme_dir` と `site_url` を手で書きます。
 **機械には分からない値**（WordPress の場所と URL）なので、そこだけ残しています。
-書いたら `ichiki doctor` で確認できます。
+書いたら `node .claude/ichiki/bin/ichiki.js doctor` で確認できます。
 
-`ichiki setup` は**何度流しても既存のファイルを壊しません**。`README.md` と `CLAUDE.md` は
+**上のコマンドは何度流しても既存のファイルを壊しません。** `README.md` と `CLAUDE.md` は
 無いときだけ作ります。更新のときも同じものを流せます。
 
-<details><summary>ichiki setup が何をしているか</summary>
+<details><summary>セットアップコマンドが何をしているか</summary>
 
 ```bash
 1. 手元の道具を見る（node / npm / git が無ければ入れ方を出して止まる）
 2. .claude/ichiki で npm install
 3. .claude/ichiki で npx playwright install chromium
 4. .claude/ichiki/commands/*.md を .claude/commands/ へコピー
-5. ichiki scan（.ichiki.json / acf-map.yaml / CLAUDE.md / README.md）
-6. ichiki doctor
+5. scan（.ichiki.json / acf-map.yaml / CLAUDE.md / README.md）
+6. doctor
 ```
 
 </details>
@@ -54,28 +60,25 @@ node .claude/ichiki/bin/ichiki.js setup
 
 ### 更新するとき
 
-submodule を進めてから、**同じ `ichiki setup` を流す**。
+submodule を進めてから、**上と同じセットアップコマンドを流す**。
 
 ```bash
 cd .claude/ichiki && git fetch && git checkout <新しいコミット> && cd ../..
 node .claude/ichiki/bin/ichiki.js setup
 ```
 
-`ichiki setup` は既存のファイルを壊さないので、初回と同じものを流せる。
+上のコマンドは既存のファイルを壊さないので、初回と同じものを流せる。
 **コマンドのコピーもやり直される。** `.ichiki.json` の `ichiki_version` だけ手で直す。
 
-`doctor` がコピーのズレとバージョン違いを見る。ズレていたら、上の `ichiki setup` を
+`doctor` がコピーのズレとバージョン違いを見る。ズレていたら、上のセットアップコマンドを
 もう一度流せば直る。
 
 ---
 
-> **コマンドの書き方**
-> `ichiki` という名前のコマンドは**ありません**（submodule なので PATH に入りません）。
-> 以降の文書に出てくる `ichiki xxx` は、こう打つことの省略表記です。
->
-> ```bash
-> node .claude/ichiki/bin/ichiki.js xxx
-> ```
+> **なぜ毎回 `node .claude/ichiki/bin/ichiki.js xxx` と書くか**
+> `ichiki` という名前のコマンドは**ありません**（submodule なので PATH に入らないため）。
+> 短縮せずに書いているのはそのためです。文書中で単に `lint` `scan` `gate` のように
+> 名前だけ書いてあるときも、実際に打つのはこの形です。
 >
 > Ichiki のリポジトリの中にいるときは `node bin/ichiki.js xxx` です。
 > コマンド一覧は `node .claude/ichiki/bin/ichiki.js --help` で見られます。
@@ -129,7 +132,7 @@ node .claude/ichiki/bin/ichiki.js gate <mockup>
 }
 ```
 
-`testspec.visual_*` を書くと、C1 に `ichiki diff` の差異率が入る。
+`testspec.visual_*` を書くと、C1 に `diff` の差異率が入る。
 **書かなければ「未実行」と明記される**（自動 OK 扱いにはしない）。
 
 `ichiki_version` を書いておくと、本体とのバージョン違いを警告する。
@@ -172,17 +175,11 @@ node .claude/ichiki/bin/ichiki.js selftest    # Ichiki 自身の健全性
 `selftest`（Ichiki 自身の健全性）の中身は
 [開発者向け資料.md「テストを厚くしている場所」](docs/開発者向け資料.md)を見てください。
 
-## 対象と前提
-
-WordPress 6.5+ / PHP 8.1+ / クラシックテーマ。
-必須プラグイン: Advanced Custom Fields（無料版）/ Safe SVG / Contact Form 7。
-ACF PRO 専用機能（Repeater / Flexible Content / オプションページ）には依存しない。
-
 ---
 
 ## 古い Node.js から上げるとき
 
-`ichiki setup` が「node が古すぎます」と言ったら、24 以上に上げてください。
+セットアップ時に「node が古すぎます」と言われたら、24 以上に上げてください。
 WordPress 側の制約ではなく、Ichiki 自体（node で書かれている）だけの話です。
 
 **nodejs.org のインストーラで入れた人（前提）**
