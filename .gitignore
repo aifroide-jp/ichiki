@@ -3,5 +3,7 @@ node_modules/
 .DS_Store
 *.log
 test/.tmp-out/
+test/.tmp-out-common-footer/
+test/.tmp-out-scan-asset-paths/
 visual-out/
 visual-diff-report/

@@ -38,9 +38,18 @@ function generateHeaderPhp(model, errors) {
   for (const p of model.allPages || []) {
     if (p === headerEntry.page) continue;
     if (!p.commonHeaderEl) continue;
-    renderBetween(p, model, p.commonHeaderEl, errors, true);
+    renderBetween(p, model, p.commonHeaderEl, mainStartOffset(p), errors, true, '<header> と <main>', 'header.php');
   }
-  const between = renderBetween(headerEntry.page, model, headerEntry.el, errors, true);
+  const between = renderBetween(
+    headerEntry.page,
+    model,
+    headerEntry.el,
+    mainStartOffset(headerEntry.page),
+    errors,
+    true,
+    '<header> と <main>',
+    'header.php'
+  );
   if (between.trim()) {
     lines.push(between);
     lines.push('');
@@ -50,9 +59,22 @@ function generateHeaderPhp(model, errors) {
   return lines.join('\n');
 }
 
-// data-common="header" の直後から <main id="main-content"> の直前までを描画する。
-// ここに置かれた要素（モバイルナビ等）は共通領域でも本文でもないが、
-// 全ページに出る必要があるので header.php に含める。
+function mainStartOffset(page) {
+  const main = page.$('#main-content').get(0);
+  return main && main.sourceCodeLocation ? main.sourceCodeLocation.startOffset : null;
+}
+
+function bodyEndOffset(page) {
+  const body = page.$('body').get(0);
+  return body && body.sourceCodeLocation && body.sourceCodeLocation.endTag
+    ? body.sourceCodeLocation.endTag.startOffset
+    : null;
+}
+
+// data-common="header"/"footer" の直後から、対になる境界（<main> の直前 /
+// </body> の直前）までを描画する。ここに置かれた要素（モバイルナビ・フロート
+// CTA 等）は共通領域でも本文でもないが、全ページに出る必要があるので
+// header.php / footer.php に含める。
 //
 // **拾うのは data-common が付いたものだけ。** 宣言の無い要素があればエラーで止める。
 //
@@ -65,17 +87,21 @@ function generateHeaderPhp(model, errors) {
 // 「全ページに共通して在るものを拾う」という直し方は採らない。それは推測であり、
 // scan から削除したのと同じ手口になる。しかも**全ページに在るが別部品**のもの
 // （フロートのお問い合わせボタン等）を必ず取り違える。宣言だけを見る。
-// requireDeclaration: header.php（全ページ共通）を組むときだけ true。
+// requireDeclaration: header.php/footer.php（全ページ共通）を組むときだけ true。
 // 自前シェル（vocabulary.md 4.1）は1ページで完結するので、宣言を要求しない。
 // そのページの中身がそのページにだけ出るのは正しい。
-function renderBetween(page, model, headerEl, errors, requireDeclaration) {
+//
+// **<header>側と</footer>側で対称に実装する。** 以前は <header> と <main> の間
+// にしかこの処理が無く、</footer> と </body> の間に置いた data-common は
+// shellCommonNames に登録されないまま generateCommonTemplateParts() へ渡り、
+// 誰にも呼ばれない template-parts/common-*.php として孤立していた（実測）。
+function renderBetween(page, model, fromEl, endOffset, errors, requireDeclaration, boundaryDesc, targetFile) {
   const $ = page.$;
-  const main = $('#main-content').get(0);
-  if (!main || !headerEl.sourceCodeLocation || !main.sourceCodeLocation) return '';
-  const start = headerEl.sourceCodeLocation.endTag
-    ? headerEl.sourceCodeLocation.endTag.endOffset
-    : headerEl.sourceCodeLocation.endOffset;
-  const end = main.sourceCodeLocation.startOffset;
+  if (!fromEl.sourceCodeLocation || endOffset == null) return '';
+  const start = fromEl.sourceCodeLocation.endTag
+    ? fromEl.sourceCodeLocation.endTag.endOffset
+    : fromEl.sourceCodeLocation.endOffset;
+  const end = endOffset;
   if (end <= start) return '';
 
   const out = [];
@@ -89,14 +115,14 @@ function renderBetween(page, model, headerEl, errors, requireDeclaration) {
       errors.add(
         page.relPath,
         node.sourceCodeLocation.startLine,
-        `<${node.name}${cls ? ` class="${cls}"` : ''}> が <header> と <main> の間にありますが ` +
+        `<${node.name}${cls ? ` class="${cls}"` : ''}> が ${boundaryDesc} の間にありますが ` +
           'data-common がありません。全ページ共通なら data-common を宣言し、' +
           'このページだけのものなら <main> の中へ移してください' +
-          '（ここは header.php に入るため、宣言の無いものを拾うとページ固有の中身が全ページに出ます）'
+          `（ここは ${targetFile} に入るため、宣言の無いものを拾うとページ固有の中身が全ページに出ます）`
       );
       continue;
     }
-    // header.php が直接展開するので、テンプレートパーツは作らない（generateCommonTemplateParts）
+    // header.php/footer.php が直接展開するので、テンプレートパーツは作らない（generateCommonTemplateParts）
     if (!model.shellCommonNames) model.shellCommonNames = new Set();
     model.shellCommonNames.add((node.attribs || {})['data-common']);
     out.push(renderFragment(page, model, node, true, errors, 'site_options'));
@@ -112,11 +138,33 @@ function generateFooterPhp(model, errors) {
   }
   const footerHtml = renderFragment(footerEntry.page, model, footerEntry.el, true, errors, 'site_options');
 
+  // <header>側と対称に、</footer> と </body> の間の要素も全ページ分を検査する。
+  // footer.php の素材は基準ページ1枚だが、宣言漏れは他ページにもあり得る。
+  for (const p of model.allPages || []) {
+    if (p === footerEntry.page) continue;
+    if (!p.commonFooterEl) continue;
+    renderBetween(p, model, p.commonFooterEl, bodyEndOffset(p), errors, true, '</footer> と </body>', 'footer.php');
+  }
+  const between = renderBetween(
+    footerEntry.page,
+    model,
+    footerEntry.el,
+    bodyEndOffset(footerEntry.page),
+    errors,
+    true,
+    '</footer> と </body>',
+    'footer.php'
+  );
+
   const lines = [];
   lines.push('</main>');
   lines.push('');
   lines.push(footerHtml);
   lines.push('');
+  if (between.trim()) {
+    lines.push(between);
+    lines.push('');
+  }
   // ここにページ末尾のスクリプトは入れない。footer.php は全ページ共通なので、
   // 1ページぶんの処理を入れると全ページに配られる（header.php でパンくずを配った件と同じ形）。
   lines.push('<?php wp_footer(); ?>');
@@ -216,7 +264,7 @@ function wrapOwnShellPage(model, page, pageId, innerHtml, errors) {
   // header.php と同じく、<header> と <main> の間の要素も出す。
   // 実測: 申込ページのパンくず（<nav class="breadcrumb">）がここに置かれており、
   // header.php 側にしか renderBetween が無かったため丸ごと消えていた。
-  const between = renderBetween(page, model, page.ownHeaderEl, errors, false);
+  const between = renderBetween(page, model, page.ownHeaderEl, mainStartOffset(page), errors, false, null, null);
   if (between.trim()) {
     lines.push(between);
     lines.push('');
@@ -229,6 +277,12 @@ function wrapOwnShellPage(model, page, pageId, innerHtml, errors) {
   lines.push('');
   lines.push(footerHtml);
   lines.push('');
+  // footer.php と同じく、</footer> と </body> の間の要素も出す（対称に）。
+  const footerBetween = renderBetween(page, model, page.ownFooterEl, bodyEndOffset(page), errors, false, null, null);
+  if (footerBetween.trim()) {
+    lines.push(footerBetween);
+    lines.push('');
+  }
   const tail = trailingScriptHtml(page);
   if (tail) { lines.push(tail); lines.push(''); }
   lines.push('<?php wp_footer(); ?>');

@@ -1,0 +1,2 @@
+/* T5テスト: background-image クラス → 装飾候補 */
+.bg-section { background-image: url('/assets/bg-section.jpg'); }

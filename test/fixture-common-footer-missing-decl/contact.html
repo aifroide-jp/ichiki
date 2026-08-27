@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>お問合せ | アーバンネイチャー北九州</title>
+  <meta name="description" content="アーバンネイチャー北九州へのお問合せ">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/page/contact.css">
+</head>
+<body data-page="page" data-page-id="contact">
+  <header data-common="header">
+    <nav data-nav="global" data-nav-current="active">
+      <a href="index.html">トップ</a>
+      <a href="contact.html" class="active">お問合せ</a>
+    </nav>
+  </header>
+
+  <main id="main-content">
+    <section id="contact" class="contact" data-section="contact_form">
+      <h1 data-acf="hero_title">お問合せ</h1>
+      <p data-acf="hero_lead">下記フォームよりお問い合わせください。</p>
+      <form data-cf7="contact">
+        <input type="text"  data-cf7-field="your-name"  data-cf7-required class="form-input" placeholder="お名前">
+        <input type="email" data-cf7-field="your-email" data-cf7-required class="form-input" placeholder="メールアドレス">
+        <textarea data-cf7-field="your-message" data-cf7-required class="form-input" placeholder="お問い合わせ内容"></textarea>
+        <label class="check-label"><input type="checkbox" data-cf7-field="privacy" data-cf7-acceptance data-cf7-required value="プライバシーポリシーに同意する">プライバシーポリシーに同意する</label>
+        <button type="submit" data-cf7-submit>送信する</button>
+      </form>
+    </section>
+  </main>
+
+  <footer data-common="footer">
+    <p data-acf="footer_copyright">&copy; 2026 アーバンネイチャー北九州</p>
+  </footer>
+  <a href="tel:0000000000" class="mobile-cta" data-acf="mobile_cta_label">今すぐ相談</a>
+</body>
+</html>
