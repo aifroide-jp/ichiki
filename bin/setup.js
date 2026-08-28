@@ -207,10 +207,39 @@ console.log('3/4 スラッシュコマンドを配置します');
 }
 
 console.log('4/4 案件設定とフィールド台帳を作ります');
+{
+  // **モックがまだ無いのは失敗ではない。** setup は依存・ブラウザ・コマンド配置まで
+  // 一気に済ませる道具だが、モック作りはこの先の別工程（人がHTMLを書く/構造化する）。
+  // 実測: モック0枚の新規案件で ✗ 付きの「ここで止まりました」を出していたため、
+  // 何かが壊れたように見えていた。ここは案内だけ出して正常終了する。
+  const { findHtmlFiles } = require('../src/shared/discover');
+  const { readConfig, DEFAULT_BEFORE_DIR } = require('../src/shared/project-config');
+  const conf = readConfig(ROOT).conf;
+  const mockupRoot = path.resolve(ROOT, conf.mockup || './');
+  const hasMockup = fs.existsSync(mockupRoot) && findHtmlFiles(mockupRoot).length > 0;
+
+  if (!hasMockup) {
+    const before = path.resolve(mockupRoot, (conf.retrofit && conf.retrofit.before) || DEFAULT_BEFORE_DIR);
+    const beforeCount = fs.existsSync(before) ? findHtmlFiles(before).length : 0;
+
+    console.log('');
+    console.log('モックがまだありません。1〜3（依存・ブラウザ・コマンド配置）はここまでで済んでいます。');
+    console.log('');
+    if (beforeCount > 0) {
+      console.log(`合意デザインが ${beforeCount} ページあります: ${path.relative(ROOT, before) || before}`);
+      console.log('既存HTMLから構造化してください: .claude/ichiki/docs/022-既存htmlからモックアップを作る.md');
+    } else {
+      console.log('新規にモックを作るなら: .claude/ichiki/docs/021-モックアップを作る.md');
+      console.log('既存の合意デザインがあるなら: .claude/ichiki/docs/022-既存htmlからモックアップを作る.md');
+    }
+    console.log('');
+    console.log('モックを用意したら、もう一度このコマンドを流してください（4/4 から続きます）。');
+    process.exit(0);
+  }
+}
 if (!ichiki(['scan'])) {
-  // 理由は scan 自身が出している（モックが無い / 規約に合っていない / リンクが解決しない）。
-  // ここで決めつけると外れる。実測: 合意デザインだけ置いた状態で
-  // 「規約に合っていない可能性があります」と出て、誤った方向へ誘導していた。
+  // ここまで来て失敗するのは「モックはあるが規約に合っていない/リンクが解決しない」等。
+  // 理由は scan 自身が出している。
   console.error('');
   console.error('✗ ここで止まりました。上に理由が出ています。');
   console.error('  直してから、もう一度このコマンドを流してください。');
