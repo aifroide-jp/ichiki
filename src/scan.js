@@ -35,7 +35,7 @@ const { findHtmlFiles } = require('./converter/lib/discover');
 const { loadPage } = require('./converter/lib/load-page');
 const { ErrorCollector } = require('./converter/lib/errors');
 const { buildModel, collectFieldsIn } = require('./converter/lib/model');
-const { readConfig, writeConfig, FILENAME, DEFAULT_BEFORE_DIR, DEFAULT_PLUGINS } = require('./shared/project-config');
+const { readConfig, writeConfig, FILENAME, DEFAULT_BEFORE_DIR, DEFAULT_PLUGINS, themeSlug } = require('./shared/project-config');
 const { DEFAULT_SEPARATOR, deriveTitleSuffix } = require('./shared/site-title');
 const { orderOf } = require('./shared/page-order');
 
@@ -158,11 +158,22 @@ function ensureProjectConfig(confPath, conf, rootDir, projectName, model, titleS
     added.push(`mockup: ${next.mockup}`);
   }
   if (!next.theme_slug) {
-    // 本番のテーマフォルダ名。案件名をそのまま使う（英小文字・数字・ハイフン）。
-    next.theme_slug = String(next.project || 'theme').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
+    // 本番のテーマフォルダ名。既定は `<案件名>_theme`（英小文字・数字・ハイフン）。
+    const slugified = String(next.project || 'theme').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
+    next.theme_slug = themeSlug({ project: slugified });
     added.push(`theme_slug: ${next.theme_slug}`);
   }
-  if (next.theme_dir === undefined) { next.theme_dir = ''; added.push('theme_dir: （未設定。書いてください）'); }
+  if (next.wp_root === undefined && next.local_site_container === undefined && next.theme_dir === undefined) {
+    next.wp_root = '';
+    next.local_site_container = '';
+    added.push(
+      'wp_root: （未設定。Local がサイトを置いているディレクトリを書いてください。例: "/Users/…/Local Sites"）'
+    );
+    added.push(
+      'local_site_container: （未設定。wp_root 直下にあるこの案件のサイトのフォルダ名を書いてください。' +
+        '案件名と同じとは限りません。Local のサイト一覧で確認してください）'
+    );
+  }
   if (next.site_url === undefined) { next.site_url = ''; added.push('site_url: （未設定。書いてください）'); }
   if (next.title_separator === undefined) {
     // モックから採った値（採れなければ既定）。**推測ではない。**
@@ -211,7 +222,7 @@ function renderReadme(projectName, rootDir, tmplPath) {
   const has = (rel) => fs.existsSync(path.join(rootDir, rel));
   const links = [];
   if (has('docs/リリース手順書.md')) {
-    links.push('| **本番に載せる** | [リリース手順書](docs/リリース手順書.md)（`ichiki release` の出力） |');
+    links.push('| **本番に載せる** | [リリース手順書](docs/リリース手順書.md)（`release` の出力） |');
   }
   if (has('docs/検収/l1-checklist.tsv')) {
     const g = has('docs/検収/l1-guide.html') ? 'l1-guide.html' : 'l1-guide.md';
@@ -227,7 +238,7 @@ function renderReadme(projectName, rootDir, tmplPath) {
   }
   if (has('docs/検収')) {
     files.push(
-      '| `docs/検収/` | C1 テスト仕様書 / C3 検収シート・ガイド（`ichiki testspec` の出力。gitignore） |'
+      '| `docs/検収/` | C1 テスト仕様書 / C3 検収シート・ガイド（`testspec` の出力。gitignore） |'
     );
   }
   // 生成できない記録（人手で作った成果物など）は、名前が分からないので拾って出す。
@@ -236,7 +247,7 @@ function renderReadme(projectName, rootDir, tmplPath) {
     files.push(`| \`docs/${d}/\` | 過去の検収成果物。**再生成できないので記録として追跡する** |`);
   }
   if (has('docs/リリース手順書.md')) {
-    files.push('| `docs/リリース手順書.md` | 本番公開の手順（`ichiki release` の出力） |');
+    files.push('| `docs/リリース手順書.md` | 本番公開の手順（`release` の出力） |');
   }
   if (has('docs/この案件の状態.md')) {
     files.push('| `docs/この案件の状態.md` | 許容している差・やらないと決めたこと・後回し |');

@@ -1,17 +1,14 @@
 # {{PROJECT}} — モックアップと WordPress 化
 
-<!-- ichiki scan で自動生成。無いときだけ作られる（人が書き足した分は消さない） -->
+<!-- scan で自動生成。無いときだけ作られる（人が書き足した分は消さない） -->
 
 このリポジトリの**ルートがモックアップ**です。`index.html` をブラウザで開けばサイトが見られます。
 そこから WordPress テーマを作るのが [Ichiki](.claude/ichiki/)（`.claude/ichiki` に submodule で入っています）。
 
-> **コマンドの書き方**
-> `ichiki` という名前のコマンドは**ありません**。実際にはこう打ちます。
-> 文書中の `ichiki xxx` は、この省略表記です。
->
-> ```bash
-> node .claude/ichiki/bin/ichiki.js xxx
-> ```
+> **なぜ毎回 `node .claude/ichiki/bin/ichiki.js xxx` と書くか**
+> `ichiki` という名前のコマンドは**ありません**（submodule なので PATH に入らないため）。
+> 短縮せずに書いているのはそのためです。文書中で単に `lint` `scan` `gate` のように
+> 名前だけ書いてあるときも、実際に打つのはこの形です。
 
 ## やりたいことから探す
 
@@ -20,10 +17,10 @@
 | **はじめて触る / エラーで止まった** | [セットアップと詰まりどころ](.claude/ichiki/docs/01-セットアップ.md) |
 | **モックを作る・直す** | [モックアップを作る](.claude/ichiki/docs/021-モックアップを作る.md) |
 | **既存の HTML から作る（構造化）** | [既存htmlからモックアップを作る](.claude/ichiki/docs/022-既存htmlからモックアップを作る.md) |
-| **WordPress にする・検査する** | [変換して検査する](.claude/ichiki/docs/04-変換して検査する.md) |
+| **WordPress にする・検査する** | [変換して検査する](.claude/ichiki/docs/03-変換して検査する.md) |
 {{LINKS}}
 | Ichiki の中身を知りたい | [Ichiki の README](.claude/ichiki/README.md) |
-| **Ichiki を直す** | [壊れやすいところ](.claude/ichiki/docs/壊れやすいところ.md) |
+| **Ichiki を直す** | [開発者向け資料](.claude/ichiki/docs/開発者向け資料.md) |
 
 ## いつも使う2つ
 
@@ -49,7 +46,7 @@ node .claude/ichiki/bin/ichiki.js --help    # コマンド一覧
 | ルート直下の `*.html` / `css/` / `js/` / `images/` | **モックアップ**。お客様と合意するもの |
 | `.ichiki.json` | 案件の設定。モックの場所・テーマの出力先・サイトURL・`<title>` の区切り |
 | `.ichiki/snapshot.json` | 生成物の凍結。出力が変わったら名指しで出る |
-| `acf-map.yaml` | フィールド台帳。`ichiki scan` で出し直せる |
+| `acf-map.yaml` | フィールド台帳。`scan` で出し直せる |
 | `CLAUDE.md` | 案件の実装ルール |
 {{FILES}}
 
@@ -64,7 +61,7 @@ node .claude/ichiki/bin/ichiki.js diff . <サイトURL>
 ```
 
 パーマリンクは REST から解決するので、ページ一覧を用意する必要はありません。
-`ichiki deliver` を使えばこれも含めて流れます。
+`deliver` を使えばこれも含めて流れます。
 
 **ピクセル比較は `gate` に入れていません。** お客様と合意するまでモックの見た目は
 変わるのが正しいので、毎回かけると正しい変更が FAIL になります。

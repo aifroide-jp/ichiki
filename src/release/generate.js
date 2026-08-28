@@ -21,7 +21,7 @@ const { findHtmlFiles } = require('../converter/lib/discover');
 const { loadPage } = require('../converter/lib/load-page');
 const { ErrorCollector } = require('../converter/lib/errors');
 const { buildModel } = require('../converter/lib/model');
-const { readConfig } = require('../shared/project-config');
+const { readConfig, themeSlug: themeSlugOf } = require('../shared/project-config');
 const { archiveSlugOf, slugOfPageId } = require('../shared/site-urls');
 const { orderOf } = require('../shared/page-order');
 
@@ -128,9 +128,9 @@ function main() {
   });
   errors.throwIfAny();
 
-  // 本番のテーマフォルダ名。**環境依存の theme_dir から導かない。**
+  // 本番のテーマフォルダ名。**環境依存のパスから導かない。**
   // 実測: 検証環境の theme_dir を指していたため "nkk-poc" と書かれていた。
-  const themeSlug = conf.theme_slug || conf.project || '<テーマ名>';
+  const themeSlug = conf.project ? themeSlugOf(conf) : '<テーマ名>';
   const plugins = conf.plugins_required || [];
   const forms = [...model.forms.keys()];
   const navs = [...model.navMap.keys()];

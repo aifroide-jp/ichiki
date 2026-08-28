@@ -17,6 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { themeDir } = require('./shared/project-config');
 
 const ICHIKI = path.join(__dirname, '..');
 const ROOT = path.resolve(process.argv[2] || process.cwd());
@@ -50,7 +51,7 @@ function ng(msg, how) {
     return String(r.stdout || r.stderr).split('\n')[0].trim();
   };
   const REQUIRED = [
-    ['node', ['--version'], 'https://nodejs.org/ から入れる（18以上）'],
+    ['node', ['--version'], 'https://nodejs.org/ から入れる（24以上）'],
     ['npm', ['--version'], 'node と一緒に入る'],
     ['git', ['--version'], 'Xcode Command Line Tools か https://git-scm.com/'],
   ];
@@ -101,7 +102,7 @@ if (fs.existsSync(confPath)) {
     ng('.ichiki.json が壊れている（JSON として読めない）', '書式を直してください');
   }
 } else {
-  ng('.ichiki.json が無い', 'README の「はじめに」を見て作成してください');
+  ng('.ichiki.json が無い', 'docs/01-セットアップ.md を見て作成してください');
 }
 
 // 3. バージョンの記録と一致
@@ -111,21 +112,42 @@ if (conf) {
   } else if (conf.ichiki_version !== VERSION) {
     ng(
       `バージョン不一致（案件は ${conf.ichiki_version} を想定 / 本体は ${VERSION}）`,
-      'submodule のコミットを合わせるか .ichiki.json を更新してください'
+      'setup をもう一度流してください（ichiki_version も含めて揃います）。' +
+        '本体を更新したつもりが無いなら、submodule のコミットを合わせてください'
     );
   } else {
     ok(`バージョンが一致している（${VERSION}）`);
   }
   if (!conf.mockup) notes.push('.ichiki.json に mockup が無い（コマンドで毎回パスを渡すことになる）');
-  for (const k of ['theme_dir', 'site_url']) {
-    if (!conf[k]) ng(`.ichiki.json の ${k} が空`, '環境に合わせて書いてください（scan は埋められません）');
+  // テーマの配置先は wp_root + local_site_container（+ theme_slug から計算）か、
+  // theme_dir（直書き。互換）のどちらかがあればよい（themeDir() と同じ判断）。
+  if (!conf.theme_dir) {
+    if (!conf.wp_root) {
+      ng(
+        '.ichiki.json の wp_root が空',
+        '環境に合わせて書いてください（例: "/Users/…/Local Sites"。scan は埋められません）'
+      );
+    }
+    if (!conf.local_site_container) {
+      ng(
+        '.ichiki.json の local_site_container が空',
+        'wp_root 直下にあるこの案件のサイトのフォルダ名を書いてください（scan は埋められません）'
+      );
+    }
+  }
+  if (!conf.site_url) {
+    ng('.ichiki.json の site_url が空', '環境に合わせて書いてください（scan は埋められません）');
   }
   // 書いてあっても**実際に届くか**は別。ポートが被って別のサイトが応答することがある。
   // 実測: Local はサイトを作り直すとポートが変わり、site_url が別サイトを指していた。
-  if (conf.theme_dir && !fs.existsSync(path.dirname(conf.theme_dir))) {
+  const dest = themeDir(conf);
+  if (dest && !fs.existsSync(path.dirname(dest))) {
     ng(
-      `.ichiki.json の theme_dir の親フォルダが無い: ${path.dirname(conf.theme_dir)}`,
-      'WordPress の themes フォルダの場所を確認してください（Local ならサイトを起動してから）'
+      `テーマの置き場所の親フォルダが無い: ${path.dirname(dest)}`,
+      'WordPress の themes フォルダの場所を確認してください（Local ならサイトを起動してから）。' +
+        (conf.wp_root && conf.local_site_container && !conf.theme_dir
+          ? ' wp_root / local_site_container の値が合っているか確認してください'
+          : '.ichiki.json の theme_dir を確認してください')
     );
   }
   if (conf.site_url) {
