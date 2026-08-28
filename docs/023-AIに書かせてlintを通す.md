@@ -37,9 +37,8 @@ Claude Code に、こう頼みます。
 .claude/ichiki/prompts/mockup-generation.md を読んで、その指示どおりに
 以下のページを作ってください。出力はすべて日本語で書いてください。
 
-- about/index.html
-- about/spots.html
-- about/spots/hiraodai.html
+- index.html
+- news/detail/renewal.html
 ```
 
 このプロンプトが「先に規約を読む → 書く → lint が通るまで直す」まで面倒を見ます。  

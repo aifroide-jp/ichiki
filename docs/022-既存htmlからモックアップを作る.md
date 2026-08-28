@@ -33,15 +33,15 @@ git mv <ルートのページ一式> .ichiki/mockup-before/
 .claude/ichiki/prompts/mockup-retrofit.md を読んで、その指示どおりに
 以下のページを構造化してください。
 
-- about/spots.html
-- about/spots/hiraodai.html
+- index.html
+- news/detail/renewal.html
 ```
 
 複数ファイルではなくディレクトリで指定してもよい。
 
 ```
 .claude/ichiki/prompts/mockup-retrofit.md を読んで、その指示どおりに
-.ichiki/mockup-before/about/ 以下の全ページを構造化してください。
+.ichiki/mockup-before/ 以下の全ページを構造化してください。
 ```
 
 宣言の付け方・lint を通すところ・見た目が変わっていないことの確認まで、  

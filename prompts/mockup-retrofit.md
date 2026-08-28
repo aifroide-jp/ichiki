@@ -16,14 +16,14 @@
 
 ```
 以下のページを構造化してください:
-  - about/spots.html
-  - about/spots/hiraodai.html
+  - index.html
+  - news/detail/renewal.html
 ```
 
 ページ名の代わりに、ディレクトリを指定してまとめて頼んでもよい。
 
 ```
-.ichiki/mockup-before/about/ 以下の全ページを構造化してください。
+.ichiki/mockup-before/ 以下の全ページを構造化してください。
 ```
 
 ---
@@ -68,6 +68,12 @@
   ルートに置き、`<link href>` で相対パスから読み込む形にしてください。JS も同様に  
   `js/main.js` / `js/page/<同上>.js` に分けます（該当する処理が無ければ無理に作らない）。  
 - css/js が既に対象ページ以外の分で存在していれば、二重に作らず追記・共用します。
+
+**作業ディレクトリを `.ichiki/mockup-before/` 等へ `cd` で移動しないでください。**  
+実測: `cd` したまま案件のルートへ戻り忘れ、`mkdir`/コピー先がルート直下ではなく  
+`.ichiki/mockup-before/css` のように**退避先の中**に作られてしまった事例があります。  
+どこにいても迷わないよう、常に案件のルートを起点にした相対パス  
+（`.ichiki/mockup-before/index.html` のように）で参照・実行してください。
 
 ## 3. lint が通るまで直す
 
