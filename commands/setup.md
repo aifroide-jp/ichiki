@@ -1,7 +1,7 @@
 ---
-description: モックアップをスキャンして acf-map.yaml と案件用 CLAUDE.md を生成する（Ichiki Phase 0）
-argument-hint: <mockup-dir> [project-name]
-allowed-tools: Bash(node:*), Read, Write, Edit
+description: モックアップをスキャンして acf-map.yaml と案件用 CLAUDE.md を生成する（Ichiki Phase 0）  
+argument-hint: <mockup-dir> [project-name]  
+allowed-tools: Bash(node:*), Read, Write, Edit  
 ---
 
 # /setup — Ichiki Phase 0
@@ -17,8 +17,8 @@ allowed-tools: Bash(node:*), Read, Write, Edit
 
 scan は**宣言（`data-*`）を読むだけ**で、推測しない。同じモックなら毎回同じ出力になる。
 
-以前は、クラス名の部分一致で hero を判定したり、祖先を遡ってセクション名を決めたりしていた。
-そのため `/setup` の手順に「装飾タブの判定をレビューする」「命名を確認する」という
+以前は、クラス名の部分一致で hero を判定したり、祖先を遡ってセクション名を決めたりしていた。  
+そのため `/setup` の手順に「装飾タブの判定をレビューする」「命名を確認する」という  
 **人が推測を後始末する工程**があった。宣言を読む方式に変えたので、どちらも消えた。
 
 ## 手順
@@ -29,7 +29,7 @@ scan は**宣言（`data-*`）を読むだけ**で、推測しない。同じモ
    node ./.claude/ichiki/bin/ichiki.js lint $1
    ```
 
-   error が出たら、その行を直す。**指摘そのものが作業リストになる。**
+   error が出たら、その行を直す。**指摘そのものが作業リストになる。**  
    制約なしのモックを受け取った場合もここから始める（後付けで通る）。
 
 2. スキャンする。
@@ -48,13 +48,13 @@ scan は**宣言（`data-*`）を読むだけ**で、推測しない。同じモ
 
 3. `coverage.json` の `unclaimed` を確認する。
 
-   宣言が無い＝**更新対象外の固定文言**になる。取りこぼしではないが、
+   宣言が無い＝**更新対象外の固定文言**になる。取りこぼしではないが、  
    「これらはお客様が編集できません」という合意が要る。lint の L20 と同じ集合。
 
 4. `CLAUDE.md` を仕上げる。
 
-   - 案件固有情報だけを書く。固定ルールは `@.claude/ichiki/rules/ichiki.md` と
-     `@.claude/ichiki/rules/vocabulary.md` の import に任せ、本文に展開しない。
+   - 案件固有情報だけを書く。固定ルールは `@.claude/ichiki/rules/ichiki.md` と  
+     `@.claude/ichiki/rules/vocabulary.md` の import に任せ、本文に展開しない。  
    - 「## ACF化除外」に、この案件だけの除外があれば書く。
 
 5. `.ichiki.json` を確認する。
@@ -72,13 +72,13 @@ scan は**宣言（`data-*`）を読むだけ**で、推測しない。同じモ
    }
    ```
 
-   `title_separator` はモックの `<title>` がその区切りで書かれているかを
-   変換時に全ページ検査する。違えば名指しで停止するので、**モックを書くときに
+   `title_separator` はモックの `<title>` がその区切りで書かれているかを  
+   変換時に全ページ検査する。違えば名指しで停止するので、**モックを書くときに  
    このファイルを見る必要はない。**
 
 ## 守ること
 
-- **フィールドを手で増減しない。** scan が列挙した集合がすべて。
-  足りなければ**モックに宣言を足して** scan し直す。
-- `acf-map.yaml` を手で編集しない。モックが唯一の入力元。
+- **フィールドを手で増減しない。** scan が列挙した集合がすべて。  
+  足りなければ**モックに宣言を足して** scan し直す。  
+- `acf-map.yaml` を手で編集しない。モックが唯一の入力元。  
   手で直すと、次の scan で消える上に、変換器との突き合わせで停止する。

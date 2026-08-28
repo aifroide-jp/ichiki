@@ -94,9 +94,12 @@ function checkDeps() {
   process.exit(2);
 }
 
-// doctor は「依存が入っているか」を診るコマンドなので、依存なしでも動く必要がある
-// （実際 fs と path しか使っていない）。ここで止めると診られない。
-const NO_DEPS_NEEDED = new Set(['doctor']);
+// doctor は「依存が入っているか」を診るコマンド、setup は依存を入れるコマンドなので、
+// どちらも依存なしで動く必要がある（実際 fs / path / readline / child_process しか使っていない）。
+// ここで止めると、setup 自身が「setup を叩け」と案内するだけの無限ループになる
+// （実測: 案件を新規clone直後に `ichiki.js setup` を叩くと、依存が無いことを理由に
+// 毎回 `node .claude/ichiki/bin/setup.js` を実行しろと言われて先に進めなかった）。
+const NO_DEPS_NEEDED = new Set(['doctor', 'setup']);
 
 // Ichiki の中で叩かれていないか。
 //
