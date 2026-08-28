@@ -222,7 +222,7 @@ function renderReadme(projectName, rootDir, tmplPath) {
   const has = (rel) => fs.existsSync(path.join(rootDir, rel));
   const links = [];
   if (has('docs/リリース手順書.md')) {
-    links.push('| **本番に載せる** | [リリース手順書](docs/リリース手順書.md)（`ichiki release` の出力） |');
+    links.push('| **本番に載せる** | [リリース手順書](docs/リリース手順書.md)（`release` の出力） |');
   }
   if (has('docs/検収/l1-checklist.tsv')) {
     const g = has('docs/検収/l1-guide.html') ? 'l1-guide.html' : 'l1-guide.md';
@@ -238,7 +238,7 @@ function renderReadme(projectName, rootDir, tmplPath) {
   }
   if (has('docs/検収')) {
     files.push(
-      '| `docs/検収/` | C1 テスト仕様書 / C3 検収シート・ガイド（`ichiki testspec` の出力。gitignore） |'
+      '| `docs/検収/` | C1 テスト仕様書 / C3 検収シート・ガイド（`testspec` の出力。gitignore） |'
     );
   }
   // 生成できない記録（人手で作った成果物など）は、名前が分からないので拾って出す。
@@ -247,7 +247,7 @@ function renderReadme(projectName, rootDir, tmplPath) {
     files.push(`| \`docs/${d}/\` | 過去の検収成果物。**再生成できないので記録として追跡する** |`);
   }
   if (has('docs/リリース手順書.md')) {
-    files.push('| `docs/リリース手順書.md` | 本番公開の手順（`ichiki release` の出力） |');
+    files.push('| `docs/リリース手順書.md` | 本番公開の手順（`release` の出力） |');
   }
   if (has('docs/この案件の状態.md')) {
     files.push('| `docs/この案件の状態.md` | 許容している差・やらないと決めたこと・後回し |');
