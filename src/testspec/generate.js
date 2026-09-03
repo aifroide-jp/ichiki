@@ -10,6 +10,7 @@ const { readA11yReport } = require('./lib/checks/a11y');
 const { readVisualDiffReport } = require('./lib/checks/visual-diff');
 const { renderC1Markdown } = require('./lib/render-c1');
 const { renderC3Tsv, renderC3Guide } = require('./lib/render-c3');
+const { themeDir } = require('../shared/project-config');
 
 // 案件のルート（.ichiki.json / acf-map.yaml がある場所）を引数で受け取る。
 //   node src/testspec/generate.js <案件ルート>
@@ -23,7 +24,21 @@ if (!fs.existsSync(ICHIKI_JSON)) {
 const ICHIKI = JSON.parse(fs.readFileSync(ICHIKI_JSON, 'utf8'));
 const TS = ICHIKI.testspec || {};
 const ACF_MAP_PATH = path.join(REPO_ROOT, 'acf-map.yaml');
-const THEME_DIR = ICHIKI.theme_dir;
+// テーマの配置先は themeDir() が唯一の実装（shared/project-config.js）。
+// ここで ICHIKI.theme_dir を直読みしていたため、wp_root + local_site_container で
+// 書かれた案件では undefined になり、path.join() の TypeError スタックだけが出ていた
+// （実測: deliver の「検収成果物」が "}" とだけ表示して停止し、理由が読めなかった）。
+const THEME_DIR = themeDir(ICHIKI);
+if (!THEME_DIR) {
+  console.error('.ichiki.json にテーマの配置先がありません。');
+  console.error('  wp_root と local_site_container（推奨）、または theme_dir を書いてください。');
+  process.exit(2);
+}
+if (!fs.existsSync(THEME_DIR)) {
+  console.error(`テーマがまだ配置されていません: ${THEME_DIR}`);
+  console.error('  先に ichiki build でテーマを出してください（検収成果物はテーマの中身から作ります）。');
+  process.exit(2);
+}
 const SITE_URL = ICHIKI.site_url;
 const OUT_DIR = path.resolve(REPO_ROOT, TS.out_dir || 'docs/検収');
 const A11Y_REPORT_PATH = path.resolve(REPO_ROOT, TS.a11y_report || 'pa11y-report.json');
