@@ -3,7 +3,7 @@
 const { DERIVABLE_TAGS, TAG_TO_TYPE, VALID_ACF_TYPES } = require('./constants');
 const { phpRaw, phpConcat } = require('./php-util');
 const { resolveHrefExpr } = require('./link-resolve');
-const { normalizeAttrValue } = require('../../shared/site-path');
+const { normalizeAttrValue, isInternalAssetRef } = require('../../shared/site-path');
 
 // data-acf / data-acf-url を持つ要素1個を解析し、
 //   - ACFフィールド定義（name/type/defaultValue）
@@ -30,10 +30,18 @@ function wysiwygDefault(page, el, innerStart, innerEnd, opts, errors) {
   const registry = opts && opts.linkRegistry;
 
   const links = [];
+  // wysiwyg の中の画像も、リンクと同じくテーマのパスへ向け直す必要がある。
+  // 拾っていなかったため、モックの相対パス（images/…）が ACF のデフォルト値に
+  // そのまま入り、WordPress ではテーマの外を指して 404 になっていた。
+  // リンクだけ直っていたのは「気づいた経路だけ直した」ためで、同じ穴が3箇所
+  // （固定 <img> / <link href> / ここ）に別々に空いていた。
+  const assets = [];
   (function walk(n) {
     for (const c of n.children || []) {
       if (c.type !== 'tag') continue;
-      if ((c.name || '').toLowerCase() === 'a') links.push(c);
+      const tag = (c.name || '').toLowerCase();
+      if (tag === 'a') links.push(c);
+      if ((c.attribs || {}).src !== undefined) assets.push(c);
       walk(c);
     }
   })(el);
@@ -51,20 +59,38 @@ function wysiwygDefault(page, el, innerStart, innerEnd, opts, errors) {
 
   if (!registry) return raw.trim();
 
-  const parts = [];
-  let cur = innerStart;
+  // href（リンク）と src（画像等）を、出現位置の順に1本の列として処理する。
+  // 別々に回すと parts のオフセットが前後して壊れるため。
+  const rewrites = [];
   for (const a of links) {
     const aloc = a.sourceCodeLocation;
     if (!aloc || !aloc.attrs || !aloc.attrs.href) continue;
-    const href = (a.attribs || {}).href;
-    const expr = resolveHrefExpr(page, aloc.startLine, href, registry, errors);
+    const expr = resolveHrefExpr(page, aloc.startLine, (a.attribs || {}).href, registry, errors);
     if (!expr) continue; // 外部URL / # / mailto: はそのまま。解決不能は errors に積み済み
-    const hl = aloc.attrs.href;
-    parts.push({ text: page.html.slice(cur, hl.startOffset) });
-    parts.push({ text: 'href="' });
-    parts.push({ php: expr });
+    rewrites.push({ loc: aloc.attrs.href, attr: 'href', expr });
+  }
+  for (const node of assets) {
+    const nloc = node.sourceCodeLocation;
+    if (!nloc || !nloc.attrs || !nloc.attrs.src) continue;
+    const src = (node.attribs || {}).src;
+    if (!isInternalAssetRef(src)) continue;
+    const assetPath = normalizeAttrValue(src, page.relPath);
+    rewrites.push({
+      loc: nloc.attrs.src,
+      attr: 'src',
+      expr: `esc_url( get_template_directory_uri() . '/assets/${assetPath}' )`,
+    });
+  }
+  rewrites.sort((x, y) => x.loc.startOffset - y.loc.startOffset);
+
+  const parts = [];
+  let cur = innerStart;
+  for (const r of rewrites) {
+    parts.push({ text: page.html.slice(cur, r.loc.startOffset) });
+    parts.push({ text: `${r.attr}="` });
+    parts.push({ php: r.expr });
     parts.push({ text: '"' });
-    cur = hl.endOffset;
+    cur = r.loc.endOffset;
   }
   if (parts.length === 0) return raw.trim();
   parts.push({ text: page.html.slice(cur, innerEnd) });

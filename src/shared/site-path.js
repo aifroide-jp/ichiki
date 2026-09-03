@@ -26,6 +26,21 @@ function normalizeAttrValue(value, pageRelPath) {
   return path.posix.normalize(joined);
 }
 
+// モック内のアセット（images/ css/ js/）を指す参照か。
+// 外部URL・データURI・アンカー・mailto:/tel: は対象外。ルート絶対パスは L21 が
+// 禁じているのでここでは扱わない（残れば変換器の最終検査が止める）。
+//
+// 変換器が「テーマのパスへ書き換えるべきか」を判断する唯一の場所。
+// 以前は経路ごとに別々の条件で判定していて、固定 <img> と wysiwyg 内の画像だけ
+// 書き換えが漏れ、生成物で 404 になっていた。
+function isInternalAssetRef(value) {
+  if (!value) return false;
+  if (/^(https?:)?\/\//i.test(value)) return false;
+  if (/^(data:|mailto:|tel:|javascript:|#)/i.test(value)) return false;
+  if (value.startsWith('/')) return false;
+  return true;
+}
+
 // outerHTML文字列中の href/src 属性値をすべて normalizeAttrValue() で正規化する。
 // data-common / data-nav 要素のページ横断バイト比較に使う(比較専用。出力には使わない)。
 // data-nav-current で宣言された class を比較対象から外す（vocabulary.md 5.1）。
@@ -59,4 +74,4 @@ function normalizeOuterForCompare(outerHtml, pageRelPath) {
   });
 }
 
-module.exports = { normalizeAttrValue, normalizeOuterForCompare, stripCurrentClass };
+module.exports = { normalizeAttrValue, isInternalAssetRef, normalizeOuterForCompare, stripCurrentClass };

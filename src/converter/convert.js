@@ -283,6 +283,31 @@ function main() {
     outputFiles.set('functions.php', fns + "\nrequire_once get_template_directory() . '/inc/retrofit-notice.php';\n");
   }
 
+  // --- モックの参照が1つ残らずテーマのパスへ向いているか ---
+  //
+  // 「気づいた箇所だけ直す」を繰り返してきた結果、同じ壊れ方が別の経路で
+  // 何度も出た（宣言済み画像の ../ 解決、<link href> の css、そして固定 <img> の src）。
+  // どれも生成物を開くまで気づけない。**目視ではなく機械で全部見る。**
+  //
+  // 生成した PHP に、モックの相対パス（images/ css/ js/ で始まる src/href）が
+  // 残っていたら、それは書き換え漏れである。WordPress ではサイトルート基準に
+  // 解釈されてテーマの外を指すので、必ず 404 になる。
+  {
+    const leftover = [];
+    const refRe = /\b(src|href)\s*=\s*"((?:\.\.\/)*(?:images|css|js)\/[^"]*)"/g;
+    for (const [rel, content] of outputFiles) {
+      let m;
+      while ((m = refRe.exec(content))) leftover.push(`${rel}: ${m[1]}="${m[2]}"`);
+    }
+    if (leftover.length) {
+      console.error('生成物にモックの相対パスが残っています（テーマの外を指すため必ず 404 になります）:');
+      for (const l of leftover.slice(0, 20)) console.error(`  ${l}`);
+      if (leftover.length > 20) console.error(`  ほか${leftover.length - 20}件`);
+      console.error('  変換器の書き換え漏れです。src/converter/lib/render.js を直してください。');
+      process.exit(1);
+    }
+  }
+
   // --- ここまでエラー無し。ファイルを書き出す(全部成功するまでテーマを書き出さない) ---
   fs.rmSync(outDir, { recursive: true, force: true });
   fs.mkdirSync(outDir, { recursive: true });

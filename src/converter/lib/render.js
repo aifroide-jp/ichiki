@@ -5,6 +5,7 @@ const { analyzeField } = require('./field-extract');
 const { resolveFixedHref } = require('./link-resolve');
 const { navWalkerClass } = require('./php-util');
 const { DECLARATION_ATTRS } = require('./constants');
+const { normalizeAttrValue, isInternalAssetRef } = require('../../shared/site-path');
 
 // 構造宣言の data-* だけを洗い出す。
 // サイト自身の JS が使う data-*（例: イベント一覧のフィルタが読む data-type /
@@ -285,6 +286,31 @@ function renderFragment(page, model, el, includeSelf, errors, scopeSlug) {
         const href = page.$(node).attr('href');
         const edit = resolveFixedHref(page, { ...hrefLoc, startLine: line }, href, model.linkRegistry, errors, currentLoopCpt);
         if (edit) addAbs(edit.start, edit.end, edit.replacement);
+      }
+    }
+
+    // 宣言していない要素の src も assets/ へ向ける。
+    //
+    // data-acf を付けた画像は analyzeField が get_template_directory_uri() 付きに
+    // 書き換えるが、**固定画像には対応する処理が無く**、モックの相対パスのまま
+    // 出力されていた。WordPress ではテーマの外（サイトルート）を指すので必ず 404 になる。
+    // 実測(maruya案件): ヘッダーとフッターのロゴが全ページで表示されなかった。
+    // ファイルは assets/images/ にコピーされているのに参照だけが届いていない、
+    // という**生成物を開くまで気づけない**壊れ方だった。
+    //
+    // 宣言済み（data-acf がある）ものは analyzeField が同じ属性を書き換えるので触らない。
+    if (!hasAcf) {
+      const srcLoc = nloc.attrs && nloc.attrs.src;
+      if (srcLoc) {
+        const src = page.$(node).attr('src');
+        if (isInternalAssetRef(src)) {
+          const assetPath = normalizeAttrValue(src, page.relPath);
+          addAbs(
+            srcLoc.startOffset,
+            srcLoc.endOffset,
+            `src="<?php echo esc_url( get_template_directory_uri() . '/assets/${assetPath}' ); ?>"`
+          );
+        }
       }
     }
     return skipRecurse;
