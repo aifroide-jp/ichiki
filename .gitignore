@@ -4,7 +4,6 @@ node_modules/
 *.log
 test/.tmp-out/
 test/.tmp-out-common-footer/
-test/.tmp-out-body-class/
 test/.tmp-out-scan-asset-paths/
 test/.tmp-out-backslash/
 visual-out/

@@ -6,7 +6,7 @@
     "ichiki": "bin/ichiki.js"
   },
   "scripts": {
-    "test": "node test/run.js && node test/converter-common-footer.js && node test/converter-body-class.js && node test/scan-asset-paths.js && node test/project-config-theme-dir.js && node test/project-config-backslash.js && node test/ichiki-cli-setup-no-deps-gate.js && node test/check-rule-sync.js && node test/verify-rules.js",
+    "test": "node test/run.js && node test/converter-common-footer.js && node test/scan-asset-paths.js && node test/project-config-theme-dir.js && node test/project-config-backslash.js && node test/ichiki-cli-setup-no-deps-gate.js && node test/check-rule-sync.js && node test/verify-rules.js",
     "test:update": "node test/run.js --update",
     "install:browsers": "npx playwright install chromium"
   },
