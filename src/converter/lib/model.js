@@ -165,6 +165,12 @@ function buildModel(pages, errors, opts = {}) {
     }
     page.mainEl = main;
 
+    // モックの <body> に書かれた class。テンプレート側が復元する（gen/templates.js）。
+    // body_class() は WordPress が決める class しか出さないため、これを運ばないと
+    // モックの class だけが生成物から丸ごと落ちる（実測: p-interview-page が消え、
+    // verify:structure が「欠落 1件」で止めた）。
+    page.bodyClasses = ($(body).attr('class') || '').split(/\s+/).filter(Boolean);
+
     // --- シェル（doctype〜<head>〜header / footer）を共通に任せるか、自前で持つか ---
     //
     // data-common="header" は「**サイトの**ヘッダー」を指す宣言で、共通化の条件は

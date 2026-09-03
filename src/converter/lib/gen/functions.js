@@ -259,6 +259,19 @@ function generateFunctionsPhp(model, errors) {
   lines.push("add_action( 'wp_enqueue_scripts', 'nkk_enqueue_assets' );");
   lines.push('');
 
+  // --- <body> の class（gen/templates.js の bodyOpenTag と対）---
+  // モックが <body> に書いた class はテンプレート側に literal で置く（そうしないと
+  // verify:structure から見えない）。ここが出すのは WordPress が決める分だけ。
+  // body_class() を丸ごと使わないのは、literal と二重に class 属性を出せないため。
+  lines.push('/**');
+  lines.push(' * body_class() のうち WordPress が決める分だけを出す。');
+  lines.push(' * モックが書いた class はテンプレートの class="…" に直接入っている。');
+  lines.push(' */');
+  lines.push('function nkk_body_class_rest() {');
+  lines.push("    echo esc_attr( implode( ' ', get_body_class() ) );");
+  lines.push('}');
+  lines.push('');
+
   // --- 固定リンク解決ヘルパー(vocabulary.md 2.2 / 10章) ---
   lines.push('/**');
   lines.push(' * data-page="page" のページのパーマリンクを、変換時に確定した data-page-id から取得する。');

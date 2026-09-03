@@ -3,6 +3,28 @@
 const { renderFragment } = require('../render');
 const { CPT_PREFIX } = require('../constants');
 
+// モックの <body class> を生成物にも出す。
+//
+// body_class() は WordPress が決める class（home / page-id-12 等）しか出さないので、
+// モックが書いた class は宣言しても運ばれず、**<body> だけ「モックと1:1」が破れる**。
+// 実測: <body class="p-interview-page"> が生成物から消え、verify:structure が
+// 「欠落 1件: p-interview-page」で停止した（モック側の不備ではなく変換器の穴）。
+//
+// class="…" の**literal として**出すこと。WordPress 的には
+// get_body_class( 'p-interview-page' ) に渡すほうが素直だが、それだと
+// verify:structure（生成PHPを class="…" で走査する）から見えず、
+// 直したのに欠落と報告され続ける。
+//
+// 残り（WordPress が決める分）は nkk_body_class_rest() に出させる。ここに
+// implode( ' ', … ) を直接書くと、属性値の中にシングルクォートが入って
+// verify:structure の class="…" 走査（値に " も ' も許さない）がこの属性ごと
+// 読み飛ばす。**クォートを属性値へ持ち込まない**ためのヘルパーである（gen/functions.js）。
+function bodyOpenTag(classes) {
+  const literal = (classes || []).join(' ');
+  if (!literal) return '<body <?php body_class(); ?>>';
+  return `<body class="${literal} <?php nkk_body_class_rest(); ?>">`;
+}
+
 function generateHeaderPhp(model, errors) {
   const headerEntry = model.commonMap.get('header');
   if (!headerEntry) {
@@ -22,7 +44,34 @@ function generateHeaderPhp(model, errors) {
   for (const l of model.headLinks || []) lines.push(l);
   lines.push('<?php wp_head(); ?>');
   lines.push('</head>');
-  lines.push('<body <?php body_class(); ?>>');
+  // header.php は全ページ共通の1枚なので、<body> の class もページ間で一致していないと
+  // 再現できない。食い違うなら推測せず停止する（設計原則3）。
+  const shellPages = (model.allPages || []).filter((p) => p.commonHeaderEl);
+  const byBodyClass = new Map();
+  for (const p of shellPages) {
+    const key = (p.bodyClasses || []).join(' ');
+    if (!byBodyClass.has(key)) byBodyClass.set(key, []);
+    byBodyClass.get(key).push(p.relPath);
+  }
+  if (byBodyClass.size > 1) {
+    const observed = [...byBodyClass.entries()]
+      .map(([k, ps]) => {
+        const names = ps.slice(0, 3).join(', ') + (ps.length > 3 ? ` ほか${ps.length - 3}件` : '');
+        return `      ${k === '' ? '（class なし）' : JSON.stringify(k)}  ${names}`;
+      })
+      .join('\n');
+    errors.add(
+      headerEntry.page.relPath,
+      null,
+      '共通ヘッダーを使うページの <body> の class が食い違っています。\n' +
+        '    header.php は1枚なので、ページごとに違う class を出し分けられません。\n' +
+        '    class をそろえるか、ページ固有の見た目は css/page/<ページID>.css 側で\n' +
+        '    表現してください（そのページでだけ読まれるので body セレクタで書けます）。\n' +
+        '    観測した class:\n' +
+        observed
+    );
+  }
+  lines.push(bodyOpenTag(headerEntry.page.bodyClasses));
   lines.push('<?php wp_body_open(); ?>');
   if (model.skipLinkHtml) lines.push(model.skipLinkHtml);
   lines.push('');
@@ -255,7 +304,8 @@ function wrapOwnShellPage(model, page, pageId, innerHtml, errors) {
   for (const l of model.headLinks || []) lines.push(l);
   lines.push('<?php wp_head(); ?>');
   lines.push('</head>');
-  lines.push('<body <?php body_class(); ?>>');
+  // 自前シェルは1ページ分のテンプレートなので、そのページの class をそのまま出せる。
+  lines.push(bodyOpenTag(page.bodyClasses));
   lines.push('<?php wp_body_open(); ?>');
   if (model.skipLinkHtml) lines.push(model.skipLinkHtml);
   lines.push('');
