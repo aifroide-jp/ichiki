@@ -117,6 +117,13 @@ const FREEZE_CSS = `
     animation: none !important;
     transition: none !important;
   }
+  /* スムーススクロールは animation でも transition でもないので上の指定では止まらない。
+     止めないと撮影前の scrollTo(0,0) が撮影に間に合わず、sticky/fixed 要素が毎回違う
+     位置に写る（実測: 撮影直前の scrollY が 2939/2926/2939 と揺れ、差分0.2%が出続けた）。
+     scroll-behavior はスクロールの動き方だけの指定なので、見た目の等価性は変わらない。 */
+  html, body {
+    scroll-behavior: auto !important;
+  }
 `;
 
 async function freezeForScreenshot(page) {
