@@ -104,15 +104,17 @@ async function main() {
   //   - モックを直しても複製側は古いままで、**ズレを検知する手段が無い**
   //   - 50ページ規模では毎回まるごとコピーすることになる
   // どれも「git が既にやっていることを、保証の弱い形でやり直す」だけだった。
-  // 検収する人はリポジトリを手元に持っている前提なので（この工程の設計そのもの）、
-  // 現物を相対で指すのが最も単純で、常に最新を見せられる。
-  const mockupBase =
-    path.relative(OUT_DIR, path.resolve(REPO_ROOT, ICHIKI.mockup || './')).split(path.sep).join('/') || '.';
+  //
+  // mockup_url（合意デザインの公開先。GitHub Pages 等）が書いてあればそれを使う。
+  // **書類だけ渡す相手にはこれしか届かない。** 相対パスはリポジトリを持っている人専用。
+  const mockupBase = ICHIKI.mockup_url
+    ? String(ICHIKI.mockup_url).replace(/\/$/, '')
+    : path.relative(OUT_DIR, path.resolve(REPO_ROOT, ICHIKI.mockup || './')).split(path.sep).join('/') || '.';
 
   const c3Tsv = renderC3Tsv(model, checkResultsByPageId, mockupBase);
   fs.writeFileSync(path.join(OUT_DIR, 'l1-checklist.tsv'), c3Tsv);
 
-  const c3Guide = renderC3Guide(SITE_URL);
+  const c3Guide = renderC3Guide(SITE_URL, mockupBase);
   fs.writeFileSync(path.join(OUT_DIR, 'l1-guide.md'), c3Guide);
 
   let autoOk = 0;

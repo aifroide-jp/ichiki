@@ -26,6 +26,10 @@
 //                            素直にパス結合するほうが単純で壊れにくい）。
 //   theme_dir             … 旧来の書き方（配置先そのものを直書き）。互換のため残す。
 //                            書いてあれば wp_root/local_site_container より優先する。
+//   mockup_url      … 合意デザインを公開している場所（例: GitHub Pages）。**任意。**
+//                     書いてあると検収シート（C3）の「合意したデザイン」列がこのURLになり、
+//                     リポジトリを持っていない人にも書類だけで渡せる。
+//                     書かなければ、書類から見た相対パス（＝手元のモック）を指す。
 //   title_separator ← `<title>` の区切り文字（ページごとに変わらないのでここ）
 //   retrofit        ← 構造化が途中であることの宣言（下記）
 //
@@ -163,6 +167,7 @@ function needsLocalSplit(basePath) {
 const ORDER = [
   'project',
   'mockup',
+  'mockup_url',
   'theme_slug',
   'wp_root',
   'local_site_container',
