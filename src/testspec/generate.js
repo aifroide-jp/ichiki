@@ -112,7 +112,7 @@ async function main() {
   const c3Tsv = renderC3Tsv(model, checkResultsByPageId, mockupBase);
   fs.writeFileSync(path.join(OUT_DIR, 'l1-checklist.tsv'), c3Tsv);
 
-  const c3Guide = renderC3Guide();
+  const c3Guide = renderC3Guide(SITE_URL);
   fs.writeFileSync(path.join(OUT_DIR, 'l1-guide.md'), c3Guide);
 
   let autoOk = 0;
@@ -147,6 +147,18 @@ async function main() {
     const r = spawnSync(process.execPath, [path.join(__dirname, 'gen-guide-html.js'), REPO_ROOT], { encoding: 'utf8' });
     process.stdout.write(r.stdout || '');
     if (r.status !== 0) process.stderr.write(r.stderr || '');
+  }
+
+  // 書類だけ渡された人は Local の URL を開けない。**渡す前に画面で言う。**
+  // 実測(maruya案件): 「合意したデザイン」列の file:// を直したあとも、
+  // 「実際のページ」列に http://localhost:10019/ が残っていた。同じ性質の値が
+  // 隣の列にあることに、書類を作った側は気づけない。
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)|\.local(:|\/|$)/i.test(SITE_URL || '')) {
+    console.log(`※ この書類の「実際のページ」は ${SITE_URL} を指しています。**このPCの Local のURLです。**`);
+    console.log('   他の人に渡すなら、その人は自分の Local のポートに読み替える必要があります');
+    console.log('   （その旨は l1-guide に入れてあります）。共有できるサイトがあるなら');
+    console.log('   ichiki deliver <そのURL> で回し直してください。');
+    console.log('');
   }
 
   console.log('出力先:');

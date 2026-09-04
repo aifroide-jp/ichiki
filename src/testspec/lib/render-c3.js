@@ -56,8 +56,23 @@ function renderC3Tsv(model, checkResultsByPageId, mockupBase) {
   return '﻿' + body;
 }
 
-function renderC3Guide() {
+// siteUrl がその場限りのもの（Local）なら、書類の中で必ず断る。
+// 書類だけ渡された人には「実際のページ」の URL がそのままでは開けないため。
+// **書く側が毎回思い出す前提にしない。** 生成時に機械が入れる。
+function localSiteNote(siteUrl) {
+  if (!siteUrl || !/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)|\.local(:|\/|$)/i.test(siteUrl)) return '';
+  return `
+> **「実際のページ」の URL について**
+>
+> このシートの URL（${siteUrl}）は、シートを作った人の Local（手元の WordPress）のものです。
+> **ご自身の環境で確認するときは、ポート番号をご自身の Local に合わせて読み替えてください。**
+> Local はサイトごとに違うポートを割り当てるので、番号は人によって変わります。
+`;
+}
+
+function renderC3Guide(siteUrl) {
   return `# 確認シートの使い方
+${localSiteNote(siteUrl)}
 
 ## これは何をするものか
 
