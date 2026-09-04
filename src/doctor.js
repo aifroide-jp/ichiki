@@ -91,18 +91,41 @@ if (fs.existsSync(path.join(ICHIKI, 'node_modules', 'cheerio'))) {
   ng('Ichiki の依存が入っていない', `cd ${path.relative(ROOT, ICHIKI) || '.'} && npm install`);
 }
 
-// 2. .ichiki.json
+// 2. .ichiki.json（+ .ichiki.local.json）
+//
+// **自分で JSON.parse しない。** readConfig が案件の事実とPC依存の値をマージする。
+// 直読みしていたため、分離後は wp_root / site_url が「空」と報告されていた
+// （値は .ichiki.local.json にある）。設定の読み方は1箇所に寄せる。
+const { readConfig, LOCAL_FILENAME } = require('./shared/project-config');
 const confPath = path.join(ROOT, '.ichiki.json');
 let conf = null;
 if (fs.existsSync(confPath)) {
   try {
-    conf = JSON.parse(fs.readFileSync(confPath, 'utf8'));
-    ok('.ichiki.json がある');
+    const r = readConfig(ROOT);
+    conf = r.conf;
+    ok(r.localPath ? `.ichiki.json がある（+ ${LOCAL_FILENAME}）` : '.ichiki.json がある');
   } catch (e) {
     ng('.ichiki.json が壊れている（JSON として読めない）', '書式を直してください');
   }
 } else {
   ng('.ichiki.json が無い', 'docs/01-セットアップ.md を見て作成してください');
+}
+
+// PC依存の値の置き場所がコミット対象になっていないか。
+// ここを見落とすと、個人のホームディレクトリやポートが共有リポジトリに入る。
+if (conf) {
+  const localExists = fs.existsSync(path.join(ROOT, LOCAL_FILENAME));
+  const ignored =
+    require('child_process').spawnSync('git', ['check-ignore', '-q', LOCAL_FILENAME], { cwd: ROOT })
+      .status === 0;
+  if (localExists && !ignored) {
+    ng(
+      `${LOCAL_FILENAME} が .gitignore に入っていない`,
+      `そのPCでしか正しくない値（Local の場所・サイトのポート）が入ります。.gitignore に ${LOCAL_FILENAME} を足してください`
+    );
+  } else if (localExists) {
+    ok(`${LOCAL_FILENAME} は .gitignore 済み`);
+  }
 }
 
 // 3. バージョンの記録と一致

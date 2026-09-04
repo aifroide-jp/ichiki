@@ -35,7 +35,7 @@ const { findHtmlFiles } = require('./converter/lib/discover');
 const { loadPage } = require('./converter/lib/load-page');
 const { ErrorCollector } = require('./converter/lib/errors');
 const { buildModel, collectFieldsIn } = require('./converter/lib/model');
-const { readConfig, writeConfig, FILENAME, DEFAULT_BEFORE_DIR, DEFAULT_PLUGINS, themeSlug } = require('./shared/project-config');
+const { readConfig, writeConfig, needsLocalSplit, FILENAME, DEFAULT_BEFORE_DIR, DEFAULT_PLUGINS, themeSlug } = require('./shared/project-config');
 const { DEFAULT_SEPARATOR, deriveTitleSuffix } = require('./shared/site-title');
 const { orderOf } = require('./shared/page-order');
 
@@ -202,11 +202,19 @@ function ensureProjectConfig(confPath, conf, rootDir, projectName, model, titleS
     } catch { /* package.json が無い配置では飛ばす */ }
   }
 
-  if (JSON.stringify(next) === before) return;
-  writeConfig(target, next);
+  // 値が同じでも、PC依存の値が .ichiki.json に混ざったままなら書き直して分離する
+  // （分離を入れる前に作られた案件が該当する。放っておくと、コミットしたくない値が
+  // 共有ファイルに残り続ける）。
+  const split = needsLocalSplit(target);
+  if (JSON.stringify(next) === before && !split) return;
+  const written = writeConfig(target, next);
   console.log('');
   console.log(`${confPath ? '更新' : '作成'}: ${path.relative(process.cwd(), target)}`);
   for (const a of added) console.log(`  ${a}`);
+  if (written.localPath) {
+    console.log(`  ${path.relative(process.cwd(), written.localPath)}: このPCでの置き場所（wp_root / local_site_container / site_url）`);
+    console.log('    **コミットしません。** .gitignore に入れてください。');
+  }
   const site = model.siteTitle;
   console.log(`  ※ <title> の区切りは ${JSON.stringify(site.separator)} として扱いました。`);
   console.log(`     サイト名 "${site.siteName}"${site.tagline ? ` / タグライン "${site.tagline}"` : ''}`);

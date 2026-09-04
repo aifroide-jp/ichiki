@@ -41,6 +41,20 @@ const path = require('path');
 
 const FILENAME = '.ichiki.json';
 
+// そのPCでしか正しくない値の置き場所。**コミットしない**（.gitignore に入れる）。
+//
+// なぜ分けるか: 案件の事実（project / mockup / title_separator / retrofit など）は
+// クローンした全員に同じものが要るのでコミットすべきだが、Local の置き場所や
+// サイトのポートは人ごとに違う。1つのファイルに混ざっていると
+// 「コミットしたくないが、しないと他の人が動かせない」という詰み方をする。
+// 実測(maruya案件): wp_root に個人のホームディレクトリ、site_url に Local が
+// 割り当てたポートが入っており、コミットの是非が決められなくなった。
+const LOCAL_FILENAME = '.ichiki.local.json';
+
+// 環境依存のキー。ここに挙げたものだけが LOCAL_FILENAME 側へ行く。
+// theme_dir は旧来の書き方（配置先の直書き）で、これも環境依存。
+const LOCAL_KEYS = ['wp_root', 'local_site_container', 'theme_dir', 'site_url'];
+
 // 合意デザインの既定の置き場所（rules/ichiki.md「モックの置き場所」）。
 // **このディレクトリがあること自体が「構造化が途中」の宣言**になる。
 // 名前を規約で固定しているので、存在を読むのは推測ではない（data-common と同じ）。
@@ -100,12 +114,11 @@ function hasSuspiciousBackslash(raw) {
   return false;
 }
 
-function readConfig(startDir) {
-  const p = findConfigPath(startDir);
-  if (!p) return { path: null, conf: {} };
+function readJsonFile(p) {
   const raw = fs.readFileSync(p, 'utf8');
   // パースの成否によらず**必ず**警告する。\t / \n のような組み合わせは
   // パースエラーにならず、気づけないまま値が壊れるため。
+  // ローカル設定（wp_root）こそ Windows のパスを貼る場所なので、両方に効かせる。
   if (hasSuspiciousBackslash(raw)) {
     console.error(
       `⚠ ${p}: \\（バックスラッシュ）が単独で使われています。` +
@@ -115,10 +128,35 @@ function readConfig(startDir) {
     );
   }
   try {
-    return { path: p, conf: JSON.parse(raw) };
+    return JSON.parse(raw);
   } catch (e) {
     throw new Error(`${p} が JSON として読めません: ${e.message}`);
   }
+}
+
+// 案件の事実（.ichiki.json、コミットする）に、そのPCの値（.ichiki.local.json、
+// コミットしない）を上書きマージして返す。呼び出し側は今までどおり conf を見るだけでよい。
+function readConfig(startDir) {
+  const p = findConfigPath(startDir);
+  if (!p) return { path: null, localPath: null, conf: {} };
+  const conf = readJsonFile(p);
+  const lp = path.join(path.dirname(p), LOCAL_FILENAME);
+  if (!fs.existsSync(lp)) return { path: p, localPath: null, conf };
+  return { path: p, localPath: lp, conf: { ...conf, ...readJsonFile(lp) } };
+}
+
+// 分離前の（PC依存の値が .ichiki.json に混ざったままの）案件かどうか。
+// 分離を入れる前に作られた設定はこの形なので、次に書き込む機会があれば分けさせる。
+// 値の中身は見ない。キーがそこにあること自体が「まだ分けていない」の印。
+function needsLocalSplit(basePath) {
+  if (!basePath || !fs.existsSync(basePath)) return false;
+  let conf;
+  try {
+    conf = JSON.parse(fs.readFileSync(basePath, 'utf8'));
+  } catch {
+    return false; // 壊れた JSON は readConfig 側が理由付きで落とす
+  }
+  return LOCAL_KEYS.some((k) => conf[k] !== undefined);
 }
 
 // キーの並びを固定して書く。人が読むファイルなので、書き直すたびに順序が変わると差分が汚れる。
@@ -136,11 +174,22 @@ const ORDER = [
   'ichiki_version',
 ];
 
+// 案件の事実とPC依存の値を、それぞれの置き場所へ書き分ける。
+// 既に混ざった .ichiki.json があっても、次にここを通った時点で分離される。
 function writeConfig(filePath, conf) {
-  const out = {};
-  for (const k of ORDER) if (conf[k] !== undefined) out[k] = conf[k];
-  for (const k of Object.keys(conf)) if (out[k] === undefined) out[k] = conf[k];
-  fs.writeFileSync(filePath, JSON.stringify(out, null, 2) + '\n', 'utf8');
+  const base = {};
+  const local = {};
+  const put = (k, v) => {
+    (LOCAL_KEYS.includes(k) ? local : base)[k] = v;
+  };
+  for (const k of ORDER) if (conf[k] !== undefined) put(k, conf[k]);
+  for (const k of Object.keys(conf)) if (base[k] === undefined && local[k] === undefined) put(k, conf[k]);
+
+  fs.writeFileSync(filePath, JSON.stringify(base, null, 2) + '\n', 'utf8');
+  const localPath = path.join(path.dirname(filePath), LOCAL_FILENAME);
+  if (Object.keys(local).length === 0) return { path: filePath, localPath: null };
+  fs.writeFileSync(localPath, JSON.stringify(local, null, 2) + '\n', 'utf8');
+  return { path: filePath, localPath };
 }
 
 // 本番のテーマ名。**環境依存のパスから導かない。**
@@ -163,6 +212,8 @@ function themeDir(conf) {
 
 module.exports = {
   FILENAME,
+  LOCAL_FILENAME,
+  LOCAL_KEYS,
   DEFAULT_BEFORE_DIR,
   DEFAULT_PLUGINS,
   findConfigPath,
@@ -170,5 +221,6 @@ module.exports = {
   writeConfig,
   themeSlug,
   themeDir,
+  needsLocalSplit,
   hasSuspiciousBackslash,
 };
