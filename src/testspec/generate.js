@@ -10,7 +10,7 @@ const { readA11yReport } = require('./lib/checks/a11y');
 const { readVisualDiffReport } = require('./lib/checks/visual-diff');
 const { renderC1Markdown } = require('./lib/render-c1');
 const { renderC3Tsv, renderC3Guide } = require('./lib/render-c3');
-const { themeDir } = require('../shared/project-config');
+const { themeDir, readConfig } = require('../shared/project-config');
 
 // 案件のルート（.ichiki.json / acf-map.yaml がある場所）を引数で受け取る。
 //   node src/testspec/generate.js <案件ルート>
@@ -21,7 +21,10 @@ if (!fs.existsSync(ICHIKI_JSON)) {
   console.error(`.ichiki.json がありません: ${ICHIKI_JSON}`);
   process.exit(2);
 }
-const ICHIKI = JSON.parse(fs.readFileSync(ICHIKI_JSON, 'utf8'));
+// **自分で JSON.parse しない。** 案件の事実（.ichiki.json）とそのPCの値
+// （.ichiki.local.json）のマージは readConfig が唯一の実装。直読みすると、
+// 分離済みの案件で wp_root / site_url が見えず「配置先がありません」で止まる。
+const ICHIKI = readConfig(REPO_ROOT).conf;
 const TS = ICHIKI.testspec || {};
 const ACF_MAP_PATH = path.join(REPO_ROOT, 'acf-map.yaml');
 // テーマの配置先は themeDir() が唯一の実装（shared/project-config.js）。
@@ -42,6 +45,28 @@ if (!fs.existsSync(THEME_DIR)) {
 const SITE_URL = ICHIKI.site_url;
 const OUT_DIR = path.resolve(REPO_ROOT, TS.out_dir || 'docs/検収');
 const A11Y_REPORT_PATH = path.resolve(REPO_ROOT, TS.a11y_report || 'pa11y-report.json');
+
+// 合意デザインを成果物の中へ複製する。戻り値は TSV から見た相対の基点。
+//
+// モックのルートを丸ごとコピーしない。案件のルートがモックそのものである場合
+// （mockup: "./"）、docs/ や node_modules、.git まで巻き込む。
+// 語彙が置き場所を固定している構成要素（ページ + css/ js/ images/）だけを写す。
+function bundleDesign(mockupDir, outDir, pages) {
+  const dest = path.join(outDir, 'design');
+  fs.rmSync(dest, { recursive: true, force: true });
+  for (const p of pages) {
+    const from = path.join(mockupDir, p.file);
+    if (!fs.existsSync(from)) continue;
+    const to = path.join(dest, p.file);
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    fs.copyFileSync(from, to);
+  }
+  for (const dir of ['css', 'js', 'images']) {
+    const from = path.join(mockupDir, dir);
+    if (fs.existsSync(from)) fs.cpSync(from, path.join(dest, dir), { recursive: true });
+  }
+  return 'design';
+}
 
 function findA11yEntry(a11yMap, page) {
   if (!a11yMap) return null;
@@ -89,14 +114,18 @@ async function main() {
   const c1 = renderC1Markdown(model, checkResultsByPageId);
   fs.writeFileSync(path.join(OUT_DIR, 'test-spec.md'), c1);
 
-  // 「合意したデザイン」の列。**モックは手元にある前提**。
+  // 「合意したデザイン」の列。**成果物と一緒にモックを配る。**
   //
-  // 検収するのは社内スタッフで、リポジトリを落として作業する。
-  // したがってモックはローカルのファイルとして開ける。公開サイトに置く必要は無い
-  // （置くと41MBが公開サイトに乗り、消し忘れの管理も要る）。
+  // 以前は file:// + 生成したPCの絶対パスを書いていた。C3 は社内スタッフに渡す
+  // 書類なので、**渡した相手のPCでは必ず開けない**
+  // （実測(maruya案件): 全行に file:///Users/<個人名>/… が入っていた。
+  //  自分でもリポジトリを別の場所へ置き直した時点で開けなくなる）。
   //
-  // Excel / スプレッドシートから開けるように file:// の絶対パスにする。
-  const mockupBase = `file://${path.resolve(REPO_ROOT, ICHIKI.mockup || './')}`;
+  // docs/検収/design/ にモックを複製し、相対パスで指す。こうすると
+  //   - 渡したフォルダごと、どのPCでも開ける
+  //   - **検収時点のデザインが凍結される**。あとからモックを直しても、
+  //     「何に対して OK を出したのか」が書類の中に残る
+  const mockupBase = bundleDesign(path.resolve(REPO_ROOT, ICHIKI.mockup || './'), OUT_DIR, model.pages);
 
   const c3Tsv = renderC3Tsv(model, checkResultsByPageId, mockupBase);
   fs.writeFileSync(path.join(OUT_DIR, 'l1-checklist.tsv'), c3Tsv);

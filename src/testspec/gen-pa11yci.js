@@ -6,10 +6,11 @@ const fs = require('fs');
 const path = require('path');
 
 const { buildThemeModel, testCasePages } = require('./lib/theme-model');
-const { themeDir } = require('../shared/project-config');
+const { themeDir, readConfig } = require('../shared/project-config');
 
 const REPO_ROOT = path.resolve(process.argv[2] || process.cwd());
-const ICHIKI = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, '.ichiki.json'), 'utf8'));
+// 直読みしない理由は generate.js と同じ（.ichiki.local.json とのマージが要る）。
+const ICHIKI = readConfig(REPO_ROOT).conf;
 const ACF_MAP_PATH = path.join(REPO_ROOT, 'acf-map.yaml');
 const OUT_PATH = path.join(REPO_ROOT, '.pa11yci.json');
 
