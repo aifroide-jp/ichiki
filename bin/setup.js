@@ -272,9 +272,12 @@ async function fillEnvValuesInteractively() {
   const confPath = path.join(ROOT, '.ichiki.json');
   if (!fs.existsSync(confPath) || !process.stdin.isTTY) return;
 
+  // **直読みしない。** 環境の値は .ichiki.local.json 側にあるので、
+  // .ichiki.json だけを見ると「未設定」に見えて **setup のたびに聞き直す**ことになる
+  // （実測(maruya案件): 設定を分離したあと、毎回3つ入力させられていた）。
   let conf;
   try {
-    conf = JSON.parse(fs.readFileSync(confPath, 'utf8'));
+    conf = require('../src/shared/project-config').readConfig(ROOT).conf;
   } catch {
     return; // 壊れていれば doctor が言う
   }
@@ -324,7 +327,8 @@ function syncIchikiVersion() {
   if (!fs.existsSync(confPath)) return;
   let conf;
   try {
-    conf = JSON.parse(fs.readFileSync(confPath, 'utf8'));
+    // 直読みすると、書き戻すときに .ichiki.local.json 側の値を落とす。
+    conf = require('../src/shared/project-config').readConfig(ROOT).conf;
   } catch {
     return;
   }

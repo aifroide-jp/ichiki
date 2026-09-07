@@ -19,9 +19,11 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(process.argv[2] || process.cwd());
+// 設定の読み方は readConfig が唯一の実装（.ichiki.json + .ichiki.local.json）。
+// 直読みは、環境の値が見えないまま既定値で動く経路を作る。
 const conf = (() => {
   try {
-    return JSON.parse(fs.readFileSync(path.join(ROOT, '.ichiki.json'), 'utf8'));
+    return require('../shared/project-config').readConfig(ROOT).conf;
   } catch {
     return {};
   }
