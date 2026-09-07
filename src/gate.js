@@ -262,7 +262,12 @@ function main() {
     console.log(`テーマは生成しました: ${themeDir}`);
     console.log(`ただし ${failures.map((f) => f.name).join(' / ')} が失敗しています。`);
   }
-  process.exit(1);
+  // 終了コードで「何が落ちたか」を分ける。どちらも非ゼロなので CI のゲートは変わらない。
+  //   1 … 連鎖（blocking）が壊れた。テーマは出ていない
+  //   2 … テーマは出たが、独立した検査（a11y・ピクセル比較）が落ちた
+  // 呼び出し側が「変換は通っているのか」を出力の文字列で判断せずに済む
+  // （retrofit:done が、後始末の失敗とデザイン側の課題を取り違えないために要る）。
+  process.exit(stoppedAt ? 1 : 2);
 }
 
 main();

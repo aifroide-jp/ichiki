@@ -40,23 +40,17 @@ try {
 //   理由で追加してはならない。
 const KNOWN_EXCLUDED_RULES = new Set(['frame-tested']);
 
+// モックの *.html を集めるのは shared/discover.js が唯一の実装。
+//
+// ここには同じ walk が別に書かれていて、除外が node_modules と隠しディレクトリだけ
+// だった。そのため成果物の置き場所（docs/）まで検査していた。
+// 実測(maruya案件): docs/visual/index.html（ピクセル比較レポート）と
+// docs/検収/l1-guide.html（検収ガイド）を拾い、AA違反が 16件 → 42件に膨れていた。
+// **自分で作ったレポートを検査して落ちる**という、数字だけ見ても分からない壊れ方。
+// lint と変換器が同じ穴を踏んで discover.js に一本化した経緯があり、a11y だけ
+// 取り残されていた。
 function findHtmlFiles(rootDir) {
-  const results = [];
-  function walk(dir) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const abs = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
-        walk(abs);
-      } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.html')) {
-        results.push(abs);
-      }
-    }
-  }
-  walk(rootDir);
-  results.sort();
-  return results;
+  return require('../shared/discover').findHtmlFiles(rootDir).map((f) => f.abs);
 }
 
 // pa11y に渡すブラウザ。

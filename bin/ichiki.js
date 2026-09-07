@@ -32,6 +32,7 @@ const COMMANDS = [
   ['gate',        [SRC, 'gate.js'],                    '<mockup> [--allow-unresolved-links] [--snapshot <json>]', '上を順に流す。最初に落ちたところで止まる'],
   ['deliver',     [SRC, 'deliver.js'],                 '[サイトURL] [--no-visual]', '公開後の検査と検収成果物を順に流す（サイトが要る）'],
   ['publish-mockup', [SRC, 'publish-mockup.js'],      '<置き先> [--remove]', 'モックを配る（合意前にお客様へ見せる用）'],
+  ['retrofit:done', [SRC, 'retrofit-done.js'],         '[案件ルート]', '構造化の後始末（宣言と合意デザインを消して gate まで）'],
   ['serve',       [SRC, 'serve.js'],                   '[mockup] [port]',                              'モックを配信するだけの静的サーバ'],
   ['setup',       [ROOT, 'bin', 'setup.js'],           '', '案件に入れる（依存・コマンド配置・設定作成を一括）'],
   ['doctor',      [SRC, 'doctor.js'],                  '[案件ルート]',                                 '案件側の受け入れ状態（依存・設定・コマンドのコピー）'],
