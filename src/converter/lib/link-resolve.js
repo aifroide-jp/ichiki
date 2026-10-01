@@ -4,6 +4,7 @@
 //   data-acf-url の無い <a> は固定リンクとして、変換器が href をパーマリンクへ機械的に解決する。
 //   モック内ファイルへの相対パスは data-page-id / data-cpt から一意に解決できる。
 //   外部URL・#アンカー・mailto: はそのまま通す。解決できなければエラー。
+//   モック内ファイルへのリンクに付いた #アンカー（index.html#contact）は、解決した URL に付け直す。
 //
 // v0.1 の実例（役割を終えて削除済みの制約モック）は "../about/x.html" ではなく "/about/x.html" という
 // サイトルート絶対パスを使っている。vocabulary.md の例は前者のみを示しており、
@@ -11,6 +12,7 @@
 // 本実装はどちらの形式も同じ「サイトパス」に正規化して解決する。
 
 const path = require('path');
+const { phpSingleQuote } = require('./php-util');
 
 function sitePathForRel(rel) {
   if (rel === 'index.html') return '';
@@ -19,7 +21,8 @@ function sitePathForRel(rel) {
 }
 
 // 現在ページ(currentRel)からの href を、モックのファイルツリー基準の「サイトパス」に正規化する。
-// 戻り値: { kind: 'anchor'|'scheme'|'external'|'internal', sitePath?, raw }
+// 戻り値: { kind: 'anchor'|'scheme'|'external'|'internal', sitePath?, hash?, raw }
+// hash は internal のときだけ持つ。'#contact' の形で、アンカーが無ければ ''。
 function classifyHref(href, currentRel) {
   if (href.startsWith('#')) return { kind: 'anchor', raw: href };
   if (/^(mailto|tel):/i.test(href)) return { kind: 'scheme', raw: href };
@@ -27,11 +30,16 @@ function classifyHref(href, currentRel) {
   if (href.startsWith('//')) return { kind: 'external', raw: href };
 
   const clean = href.split('#')[0].split('?')[0];
+  // 行き先のページを引くにはアンカーを外すが、捨ててはいけない。
+  // 実測: index.html#contact が home_url('/') になり、「フォームへ」のボタンが
+  // トップの先頭に飛んでいた（フォームまで行かない）。
+  const hashAt = href.indexOf('#');
+  const hash = hashAt >= 0 && hashAt < href.length - 1 ? href.slice(hashAt) : '';
 
   if (clean.startsWith('/')) {
     let sp = clean.slice(1);
     if (sp !== '' && sp.endsWith('/index.html')) sp = sp.slice(0, -'index.html'.length);
-    return { kind: 'internal', sitePath: sp, raw: href };
+    return { kind: 'internal', sitePath: sp, hash, raw: href };
   }
 
   // 現在ページ相対のパス。"../about/x.html"(vocabulary.md の例と同形)に加え、
@@ -50,7 +58,7 @@ function classifyHref(href, currentRel) {
   if (resolved === '.') resolved = '';
   if (resolved.endsWith('/index.html')) resolved = resolved.slice(0, -'index.html'.length);
   else if (resolved === 'index.html') resolved = '';
-  return { kind: 'internal', sitePath: resolved, raw: href };
+  return { kind: 'internal', sitePath: resolved, hash, raw: href };
 }
 
 // pages: model 構築中に集めた {relPath, dataPage, pageId, cpt} の配列
@@ -120,7 +128,19 @@ function phpForDescriptor(descriptor, loopCpt) {
 // これはエラーが既に記録された結果であり、最終的に非ゼロ終了する)。
 function resolveHrefExpr(page, line, href, linkRegistry, errors, loopCpt) {
   const cls = classifyHref(href, page.relPath);
+  const expr = resolveHrefExprWithoutHash(page, line, href, cls, linkRegistry, errors, loopCpt);
+  return expr && cls.hash ? appendHash(expr, cls.hash) : expr;
+}
 
+// 解決した URL 式（どれも esc_url( ... ) の形）の内側にアンカーを足す。
+// 外側に足すと esc_url を通らない文字列が href に混ざる。
+function appendHash(expr, hash) {
+  const m = /^esc_url\( ([\s\S]*) \)$/.exec(expr);
+  if (!m) throw new Error(`appendHash: esc_url( ... ) の形ではない式です: ${expr}`);
+  return `esc_url( ${m[1]} . ${phpSingleQuote(hash)} )`;
+}
+
+function resolveHrefExprWithoutHash(page, line, href, cls, linkRegistry, errors, loopCpt) {
   if (cls.kind === 'anchor' || cls.kind === 'scheme' || cls.kind === 'external') {
     return null;
   }

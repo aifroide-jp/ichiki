@@ -19,11 +19,17 @@
 //   - 固定ページのスラッグを変えるとメニューだけ壊れる
 //   - 投稿を削除してもリンクが残り 404 になる
 // 固定ページは post_type、CPT 一覧は post_type_archive で持たせる。
-// 外部URL・# アンカー・mailto: だけがカスタムリンクになる。
+// 外部URL・mailto: と、アンカー付きの項目だけがカスタムリンクになる。
+//
+// アンカー付き（#worries / about.html#access）は参照にできない。参照型の項目は
+// URL 欄を持たず、# を付ける場所が無いため。行き先の URL を引いて # を足した URL で持つ。
+// #worries だけの項目は「そのナビが書かれたページ」のアンカーとして URL にする。
+// '#worries' のまま登録すると、メニューが出る他のページでは自分のページの
+// #worries を探してしまい、押しても何も起きない（実測）。
 
 const { phpSingleQuote } = require('../php-util');
 const { CPT_PREFIX } = require('../constants');
-const { classifyHref } = require('../link-resolve');
+const { classifyHref, sitePathForRel } = require('../link-resolve');
 
 // メニュー名は管理画面にそのまま出る。nkk-global のような内部識別子を付けると
 // お客様には意味が分からない（表示位置のラベルで同じ誤りをして直したのに、
@@ -72,7 +78,11 @@ function generateSeedMenusPhp(model) {
     for (const it of info.menuItems) {
       // モック内リンクは「サイトパス」で持たせ、投入時にパーマリンクへ解決する。
       // 解決できないもの・外部リンクはカスタムリンクにする。
-      const cls = classifyHref(it.href || '', navBaseRel(location));
+      let cls = classifyHref(it.href || '', navBaseRel(location));
+      // '#' だけの項目（子を持つ親の飾り等）はどこも指さないので、そのまま。
+      if (cls.kind === 'anchor' && cls.raw.length > 1) {
+        cls = { kind: 'internal', sitePath: sitePathForRel(navBaseRel(location)), hash: cls.raw, raw: cls.raw };
+      }
       let target = `array( 'url' => ${phpSingleQuote(it.href || '#')} )`;
       if (cls.kind === 'internal') {
         const d = model.linkRegistry && model.linkRegistry.get(cls.sitePath);
@@ -105,8 +115,9 @@ function generateSeedMenusPhp(model) {
           }
         }
       }
+      const hash = cls.kind === 'internal' && cls.hash ? `, 'hash' => ${phpSingleQuote(cls.hash)}` : '';
       L.push(
-        `            array( 'label' => ${phpSingleQuote(it.label)}, 'parent' => ${it.parent}, 'target' => ${target} ),`
+        `            array( 'label' => ${phpSingleQuote(it.label)}, 'parent' => ${it.parent}, 'target' => ${target}${hash} ),`
       );
     }
     L.push('        ),');
@@ -182,6 +193,19 @@ function generateSeedMenusPhp(model) {
   L.push('            } else {');
   L.push('                $args[\'menu-item-type\'] = \'custom\';');
   L.push('                $args[\'menu-item-url\']  = $t[\'url\'];');
+  L.push('            }');
+  L.push('            // アンカー付きはカスタムリンクにする。参照型の項目は URL 欄を持たず、# を付けられない。');
+  L.push('            if ( ! empty( $item[\'hash\'] ) ) {');
+  L.push('                if ( \'custom\' === $args[\'menu-item-type\'] ) {');
+  L.push('                    $base = $args[\'menu-item-url\'];');
+  L.push('                } elseif ( \'post_type_archive\' === $args[\'menu-item-type\'] ) {');
+  L.push('                    $base = get_post_type_archive_link( $args[\'menu-item-object\'] );');
+  L.push('                } else {');
+  L.push('                    $base = get_permalink( $args[\'menu-item-object-id\'] );');
+  L.push('                }');
+  L.push('                unset( $args[\'menu-item-object\'], $args[\'menu-item-object-id\'] );');
+  L.push('                $args[\'menu-item-type\'] = \'custom\';');
+  L.push('                $args[\'menu-item-url\']  = $base . $item[\'hash\'];');
   L.push('            }');
   L.push('            if ( $item[\'parent\'] >= 0 && isset( $ids[ $item[\'parent\'] ] ) ) {');
   L.push('                $args[\'menu-item-parent-id\'] = $ids[ $item[\'parent\'] ];');
