@@ -13,6 +13,7 @@ const absoluteRefs = require('./absolute-refs');
 const linkTargets = require('./link-targets');
 const fieldTypes = require('./field-types');
 const docTitle = require('./doc-title');
+const navAnchors = require('./nav-anchors');
 
 // 単一ページで完結するルール(L01,L02,L03,L04,L05,L06,L07,L10,L11,L12,L13,L14,L15,L18,L19,L20,L21)
 function runPerPageRules(page, rootDir) {
@@ -28,7 +29,7 @@ function runPerPageRules(page, rootDir) {
   ];
 }
 
-// ディレクトリ全体を見てから判定するルール(L08,L09,L16,L30,L31,L32)
+// ディレクトリ全体を見てから判定するルール(L08,L09,L16,L30,L31,L32,L33)
 function runCrossPageRules(pages, rootDir) {
   return [
     ...crossCpt.run(pages),
@@ -37,6 +38,7 @@ function runCrossPageRules(pages, rootDir) {
     ...linkTargets.run(pages),
     ...fieldTypes.run(pages),
     ...docTitle.run(pages),
+    ...navAnchors.run(pages),
   ];
 }
 

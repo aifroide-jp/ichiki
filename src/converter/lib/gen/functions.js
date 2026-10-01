@@ -40,6 +40,35 @@ function generateFunctionsPhp(model, errors) {
   lines.push("add_action( 'after_setup_theme', 'nkk_setup' );");
   lines.push('');
 
+  // --- メニューのアンカー: 同じページなら # だけにする ---
+  // seed-menus はアンカー付きの項目を「行き先のURL + #worries」で登録する（他のページから飛べるように）。
+  // だがそのページ自身で https://…/#worries を出すと、モックの JS が拾えなくなる。
+  // スムーススクロールは a[href^="#"] で拾う書き方が多く、モックに書いた形（#worries）でしか動かない。
+  // **モックに書いたページでは、モックの href のまま出す。**
+  // wp_nav_menu_objects は表示のときだけ通る（管理画面の編集画面には効かない＝保存値は変わらない）。
+  if (model.navMap.size > 0) {
+    lines.push('/**');
+    lines.push(' * メニュー項目のアンカー付き URL が表示中のページを指すなら、#worries だけにする。');
+    lines.push(' * モックの JS（a[href^="#"] で拾うスムーススクロール等）をそのまま動かすため。');
+    lines.push(' */');
+    lines.push('function nkk_menu_same_page_anchor( $items ) {');
+    lines.push("    $req  = wp_parse_url( isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '/' );");
+    lines.push("    $here = trailingslashit( isset( $req['path'] ) ? $req['path'] : '/' );");
+    lines.push('    $host = wp_parse_url( home_url(), PHP_URL_HOST );');
+    lines.push('    foreach ( $items as $item ) {');
+    lines.push('        $u = wp_parse_url( $item->url );');
+    lines.push("        if ( ! $u || empty( $u['fragment'] ) || ! empty( $u['query'] ) ) { continue; }");
+    lines.push("        if ( ! isset( $u['path'] ) && ! isset( $u['host'] ) ) { continue; } // 元から #worries だけ");
+    lines.push("        if ( isset( $u['host'] ) && $u['host'] !== $host ) { continue; }");
+    lines.push("        $path = trailingslashit( isset( $u['path'] ) ? $u['path'] : '/' );");
+    lines.push("        if ( $path === $here ) { $item->url = '#' . $u['fragment']; }");
+    lines.push('    }');
+    lines.push('    return $items;');
+    lines.push('}');
+    lines.push("add_filter( 'wp_nav_menu_objects', 'nkk_menu_same_page_anchor' );");
+    lines.push('');
+  }
+
   // ナビは theme_location ごとに専用 Walker を生成する(下記 --- ナビ Walker --- )。
   // 以前は「形を2種類に分類して class 名だけ抜き出し、フィルタで差し戻す」方式だったが、
   // 形が増えるたびに分類と Walker が増える作りだった。テンプレート方式に置き換え済み。
